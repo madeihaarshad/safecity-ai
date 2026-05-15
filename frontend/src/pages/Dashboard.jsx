@@ -4,6 +4,7 @@ import socket from '../socket';
 import { ShieldAlert, Car, Waves, Activity, Radio, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, AlertCircle, RefreshCcw } from 'lucide-react';
 import AlertStream from '../components/AlertStream';
 import SectionHeader from '../components/SectionHeader';
+import Breadcrumb from '../components/Breadcrumb';
 import SensorGrid from '../components/SensorGrid';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -384,6 +385,7 @@ setStats(res.data);
 
   return (
     <div className="p-6 space-y-6 bg-slate-950 min-h-full">
+      <Breadcrumb crumbs={[{ label: 'Dashboard' }]} />
 
       {/* City Risk Banner */}
       <CityRiskBanner />

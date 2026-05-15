@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchViolations, detectViolations } from '../api/api';
 import SectionHeader from '../components/SectionHeader';
+import Breadcrumb from '../components/Breadcrumb';
 import {
   Search, Filter, ExternalLink, Camera, Upload,
   RefreshCcw, ShieldAlert, Video, VideoOff, Aperture, Trash2
@@ -200,7 +201,9 @@ const Violations = () => {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-8 space-y-6">
+      <Breadcrumb crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Violations' }]} />
+      
       <SectionHeader
         title="Traffic Violations"
         subtitle="Database records · YOLO AI violation scanner"

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { predictRisk, detectFrame, fetchCameraStats, fetchAIHealth } from '../api/api';
 import SectionHeader from '../components/SectionHeader';
+import Breadcrumb from '../components/Breadcrumb';
 import {
   Brain, Sparkles, RefreshCcw, Camera, Upload,
   Activity, Car, PersonStanding, AlertTriangle,
-  Wifi, WifiOff, Video, VideoOff, Aperture
+  Wifi, WifiOff, Video, VideoOff, Aperture, AlertCircle, Zap
 } from 'lucide-react';
 
 const RiskBadge = ({ level }) => {
@@ -25,10 +26,52 @@ const CongestionBadge = ({ level }) => {
   );
 };
 
+const RiskGauge = ({ score }) => {
+  const normalizedScore = Math.min(Math.max(score, 0), 100);
+  const angle = (normalizedScore / 100) * 180 - 90;
+  const color = normalizedScore < 40 ? '#22c55e' : normalizedScore < 70 ? '#eab308' : '#ef4444';
+  const cx = 120, cy = 140, r = 80;
+  
+  const startAngle = -90;
+  const endAngle = startAngle + (normalizedScore / 100) * 180;
+  const startRad = (startAngle * Math.PI) / 180;
+  const endRad = (endAngle * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(startRad);
+  const y1 = cy + r * Math.sin(startRad);
+  const x2 = cx + r * Math.cos(endRad);
+  const y2 = cy + r * Math.sin(endRad);
+  const largeArc = normalizedScore > 50 ? 1 : 0;
+  const pathData = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+
+  return (
+    <svg width="240" height="280" viewBox="0 0 240 280" className="mx-auto">
+      {/* Background arc */}
+      <path d={`M ${cx + r * Math.cos(((-90) * Math.PI) / 180)} ${cy + r * Math.sin(((-90) * Math.PI) / 180)} A ${r} ${r} 0 1 1 ${cx + r * Math.cos((90 * Math.PI) / 180)} ${cy + r * Math.sin((90 * Math.PI) / 180)}`} stroke="#334155" strokeWidth="8" fill="none" />
+      {/* Progress arc */}
+      <path d={pathData} stroke={color} strokeWidth="8" fill="none" strokeLinecap="round" />
+      {/* Center circle */}
+      <circle cx={cx} cy={cy} r="40" fill="#1e293b" stroke={color} strokeWidth="2" />
+      <text x={cx} y={cy + 8} fontSize="32" fontWeight="900" fill="white" textAnchor="middle" dominantBaseline="middle">
+        {normalizedScore.toFixed(0)}
+      </text>
+      <text x={cx} y={cy + 30} fontSize="12" fill="#94a3b8" textAnchor="middle">
+        Risk Score
+      </text>
+    </svg>
+  );
+};
+
 const Analytics = () => {
   // ── Risk predictor ──────────────────────────────────────
   const [loadingRisk, setLoadingRisk] = useState(false);
   const [prediction, setPrediction]   = useState(null);
+  const [formData, setFormData] = useState({
+    hour: 12,
+    weather: 'Clear',
+    congestion: 'Light',
+    speed_avg: 60,
+    incident_count: 0
+  });
 
   // ── Image detection ─────────────────────────────────────
   const [selectedImage, setSelectedImage]   = useState(null);
@@ -155,13 +198,21 @@ const Analytics = () => {
   };
 
   // ── Risk prediction ─────────────────────────────────────
-  const runPrediction = async () => {
+  const runPrediction = async (e) => {
+    e.preventDefault();
     setLoadingRisk(true);
     try {
-      const res = await predictRisk({ congestion: 0.75, weather: 'Rainy', hour: 18 });
+      const payload = {
+        hour: formData.hour,
+        weather: formData.weather,
+        congestion: formData.congestion,
+        speed_avg: formData.speed_avg,
+        incident_count: formData.incident_count
+      };
+      const res = await predictRisk(payload);
       setPrediction(res.data);
-    } catch {
-      setPrediction({ risk_score: 0.82, level: 'High' });
+    } catch (err) {
+      setPrediction({ risk_score: 65, level: 'High', breakdown: {}, recommendation: 'Unable to reach AI engine' });
     } finally {
       setTimeout(() => setLoadingRisk(false), 600);
     }
@@ -169,6 +220,7 @@ const Analytics = () => {
 
   return (
     <div className="p-8 space-y-8">
+      <Breadcrumb crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'AI Analytics' }]} />
       <SectionHeader title="AI Analytics" subtitle="YOLO vision detection · Predictive risk modelling · Live camera stats" />
 
       {/* Status bar */}
@@ -187,51 +239,160 @@ const Analytics = () => {
 
       {/* ── Row 1: Risk predictor ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-slate-800 p-8 rounded-xl border border-slate-700 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-accent/20 rounded-2xl flex items-center justify-center text-accent mb-6">
-            <Brain size={32} />
+        {/* Input form */}
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center text-accent">
+              <Brain size={20} />
+            </div>
+            <h3 className="text-lg font-bold">Risk Prediction</h3>
           </div>
-          <h3 className="text-xl font-bold mb-2">Accident Risk Predictor</h3>
-          <p className="text-slate-400 text-sm mb-8">
-            Neural model fusing weather, time, congestion and live YOLO camera data into a risk score.
-          </p>
-          <button onClick={runPrediction} disabled={loadingRisk}
-            className="w-full py-3 bg-accent text-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center justify-center gap-2">
-            {loadingRisk ? <RefreshCcw className="animate-spin" size={20} /> : <Sparkles size={20} />}
-            Run AI Analysis
-          </button>
+          
+          <form onSubmit={runPrediction} className="space-y-4">
+            {/* Hour slider */}
+            <div>
+              <label className="text-xs uppercase font-bold text-slate-400 block mb-2">Current Hour: {formData.hour}</label>
+              <input
+                type="range"
+                min="0"
+                max="23"
+                value={formData.hour}
+                onChange={(e) => setFormData({ ...formData, hour: parseInt(e.target.value) })}
+                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-accent"
+              />
+              <div className="flex justify-between text-xs text-slate-500 mt-1"><span>00:00</span><span>23:00</span></div>
+            </div>
+
+            {/* Weather dropdown */}
+            <div>
+              <label className="text-xs uppercase font-bold text-slate-400 block mb-2">Weather</label>
+              <select
+                value={formData.weather}
+                onChange={(e) => setFormData({ ...formData, weather: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-accent"
+              >
+                <option>Clear</option>
+                <option>Rain</option>
+                <option>Fog</option>
+                <option>Storm</option>
+              </select>
+            </div>
+
+            {/* Congestion dropdown */}
+            <div>
+              <label className="text-xs uppercase font-bold text-slate-400 block mb-2">Congestion</label>
+              <select
+                value={formData.congestion}
+                onChange={(e) => setFormData({ ...formData, congestion: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-accent"
+              >
+                <option>Free Flow</option>
+                <option>Light</option>
+                <option>Moderate</option>
+                <option>Severe</option>
+              </select>
+            </div>
+
+            {/* Average Speed */}
+            <div>
+              <label className="text-xs uppercase font-bold text-slate-400 block mb-2">Avg Speed (km/h)</label>
+              <input
+                type="number"
+                value={formData.speed_avg}
+                onChange={(e) => setFormData({ ...formData, speed_avg: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-accent"
+                min="0"
+                max="200"
+              />
+            </div>
+
+            {/* Incident Count */}
+            <div>
+              <label className="text-xs uppercase font-bold text-slate-400 block mb-2">Incident Count</label>
+              <input
+                type="number"
+                value={formData.incident_count}
+                onChange={(e) => setFormData({ ...formData, incident_count: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-accent"
+                min="0"
+                max="50"
+              />
+            </div>
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={loadingRisk}
+              className="w-full py-3 bg-accent text-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            >
+              {loadingRisk ? <RefreshCcw className="animate-spin" size={18} /> : <Sparkles size={18} />}
+              {loadingRisk ? 'Analyzing...' : 'Predict Risk'}
+            </button>
+          </form>
         </div>
 
-        <div className="lg:col-span-2 bg-slate-800 p-8 rounded-xl border border-slate-700 min-h-[260px] flex items-center justify-center">
-          {!prediction && !loadingRisk && <div className="text-slate-500 italic">Click "Run AI Analysis" to see the prediction</div>}
+        {/* Results display */}
+        <div className="lg:col-span-2 bg-slate-800 p-8 rounded-xl border border-slate-700">
+          {!prediction && !loadingRisk && (
+            <div className="h-full flex flex-col items-center justify-center text-slate-500">
+              <Brain size={48} className="mb-3 opacity-30" />
+              <p className="italic">Configure parameters and click "Predict Risk" to start analysis</p>
+            </div>
+          )}
+          
           {loadingRisk && (
-            <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center justify-center gap-4">
               <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-slate-400">Processing parameters…</p>
             </div>
           )}
+          
           {prediction && !loadingRisk && (
-            <div className="w-full">
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <h4 className="text-slate-400 text-xs uppercase font-bold tracking-wider">Accident Probability</h4>
-                  <div className="text-6xl font-black text-white">{(prediction.risk_score * 100).toFixed(0)}%</div>
-                  <p className="text-slate-400 text-sm">Overall Risk Index</p>
-                </div>
-                <div className="space-y-3">
-                  <h4 className="text-slate-400 text-xs uppercase font-bold tracking-wider">Risk Level</h4>
-                  <RiskBadge level={prediction.level} />
-                  {prediction.contributing_factors && (
-                    <div className="mt-3 space-y-1 text-xs text-slate-400 bg-slate-900 p-3 rounded-lg">
-                      <p>🌧 Weather: <span className="text-white">{prediction.contributing_factors.weather_factor}×</span></p>
-                      <p>🕕 Time: <span className="text-white">{prediction.contributing_factors.time_factor}×</span></p>
-                      <p>🚗 YOLO vehicles: <span className="text-white">{prediction.contributing_factors.camera_vehicle_count}</span></p>
-                      <p>⚠️ YOLO violations: <span className="text-white">{prediction.contributing_factors.camera_violations}</span></p>
-                      <p>📷 Camera factor: <span className="text-white">{prediction.contributing_factors.camera_factor}×</span></p>
-                    </div>
-                  )}
-                </div>
+            <div className="space-y-6">
+              {/* Gauge */}
+              <div className="flex justify-center">
+                <RiskGauge score={typeof prediction.risk_score === 'number' ? prediction.risk_score : (prediction.risk_score * 100)} />
               </div>
+
+              {/* Risk level */}
+              <div className="text-center">
+                <p className="text-slate-400 text-sm uppercase font-bold mb-2">Risk Level</p>
+                <p className={`text-3xl font-black ${
+                  prediction.level === 'Low' ? 'text-green-400' :
+                  prediction.level === 'Moderate' ? 'text-yellow-400' :
+                  prediction.level === 'High' ? 'text-orange-400' : 'text-red-500'
+                }`}>
+                  {prediction.level}
+                </p>
+              </div>
+
+              {/* Breakdown table */}
+              {prediction.breakdown && Object.keys(prediction.breakdown).length > 0 && (
+                <div className="bg-slate-900 rounded-lg p-4">
+                  <p className="text-xs uppercase font-bold text-slate-400 mb-3">Risk Breakdown</p>
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {Object.entries(prediction.breakdown).map(([key, value]) => (
+                        <tr key={key} className="border-b border-slate-700 last:border-b-0">
+                          <td className="py-2 text-slate-400 capitalize">{key.replace(/_/g, ' ')}</td>
+                          <td className="py-2 text-right text-white font-semibold">{value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Recommendation */}
+              {prediction.recommendation && (
+                <div className="bg-blue-500/10 border border-blue-500/40 rounded-lg p-4 flex gap-3">
+                  <AlertCircle size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs uppercase font-bold text-blue-400 mb-1">Recommendation</p>
+                    <p className="text-sm text-blue-300">{prediction.recommendation}</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

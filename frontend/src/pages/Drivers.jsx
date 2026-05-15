@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import SectionHeader from '../components/SectionHeader';
+import Breadcrumb from '../components/Breadcrumb';
 import { User, ShieldCheck, AlertCircle, Eye, Trash2 } from 'lucide-react';
 
 // ── Loading skeleton ─────────────────────────────────────────────────────────
@@ -127,6 +128,7 @@ const Drivers = () => {
 
   return (
     <div className="p-8">
+      <Breadcrumb crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Drivers' }]} />
       <SectionHeader
         title="Fleet Management"
         subtitle="Monitor active drivers and safety scores"

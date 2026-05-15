@@ -10,6 +10,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import socket from "../socket";
+import Breadcrumb from '../components/Breadcrumb';
 
 // ─── Fix default marker icons ───────────────────────────────────────────────
 delete L.Icon.Default.prototype._getIconUrl;
@@ -212,10 +213,21 @@ const MapView = () => {
 
   useEffect(() => {
     // Fetch initial sensor state from REST
-    fetch("/api/sensors")
-      .then((r) => r.json())
-      .then((data) => setSensors(data))
-      .catch(() => {});
+    const fetchSensors = async () => {
+      try {
+        const res = await fetch("/api/sensors");
+        const data = await res.json();
+        setSensors(data);
+      } catch (error) {
+        console.error("Failed to fetch sensors:", error);
+      }
+    };
+
+    // Fetch on mount
+    fetchSensors();
+
+    // Auto-refresh every 10 seconds
+    const refreshInterval = setInterval(fetchSensors, 10000);
 
     // Live updates via socket
     socket.on("sensorUpdate", (data) => {
@@ -224,11 +236,18 @@ const MapView = () => {
         return [...filtered, data];
       });
     });
-    return () => socket.off("sensorUpdate");
+
+    return () => {
+      clearInterval(refreshInterval);
+      socket.off("sensorUpdate");
+    };
   }, []);
 
   return (
     <div style={{ position: "relative", height: "100vh", width: "100%" }}>
+      <div style={{ position: "absolute", top: 16, left: 16, zIndex: 1000 }}>
+        <Breadcrumb crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Live Map' }]} />
+      </div>
       {/* ── Top controls ── */}
       <div style={{
         position: "absolute", top: 16, right: 16, zIndex: 1000,
