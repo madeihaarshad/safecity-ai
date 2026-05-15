@@ -13,6 +13,7 @@ import socket from "./socket";
 import Toast from "./components/Toast";
 import HelpPanel from "./components/HelpPanel";
 import WelcomeModal from "./components/WelcomeModal";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const SidebarLink = ({ to, icon: Icon, label, collapsed, onClick }) => {
   const location = useLocation();
@@ -266,6 +267,8 @@ const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
 const AppContent = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [helpPanelOpen, setHelpPanelOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showOnlineBanner, setShowOnlineBanner] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const saved = localStorage.getItem('safecity-sidebar');
@@ -292,6 +295,29 @@ const AppContent = () => {
   useEffect(() => {
     localStorage.setItem('safecity-sidebar', JSON.stringify(sidebarOpen));
   }, [sidebarOpen]);
+
+  // Online/Offline detection
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOnlineBanner(true);
+      // Auto-dismiss "Back online" banner after 3 seconds
+      setTimeout(() => setShowOnlineBanner(false), 3000);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setShowOnlineBanner(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const isCollapsed = !sidebarOpen && !isMobile;
 
@@ -354,15 +380,28 @@ const AppContent = () => {
           isMobile={isMobile}
           onHelpClick={() => setHelpPanelOpen(!helpPanelOpen)}
         />
+
+        {/* Offline/Online Banner */}
+        {!isOnline && (
+          <div className="w-full bg-yellow-500/20 text-yellow-300 border-b border-yellow-500/30 px-6 py-3 flex items-center justify-center gap-2 z-50">
+            <span className="text-sm font-semibold">⚠ No internet connection — data may be outdated</span>
+          </div>
+        )}
+        {isOnline && showOnlineBanner && (
+          <div className="w-full bg-green-500/20 text-green-300 border-b border-green-500/30 px-6 py-3 flex items-center justify-center gap-2 z-50 animate-fadeIn">
+            <span className="text-sm font-semibold">✓ Back online</span>
+          </div>
+        )}
+
         <main className="flex-1 overflow-y-auto">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/drivers" element={<Drivers />} />
-            <Route path="/violations" element={<Violations />} />
-            <Route path="/disasters" element={<Disasters />} />
-            <Route path="/map" element={<MapView />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/planner" element={<RoutePlanner />} />
+            <Route path="/" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+            <Route path="/drivers" element={<ErrorBoundary><Drivers /></ErrorBoundary>} />
+            <Route path="/violations" element={<ErrorBoundary><Violations /></ErrorBoundary>} />
+            <Route path="/disasters" element={<ErrorBoundary><Disasters /></ErrorBoundary>} />
+            <Route path="/map" element={<ErrorBoundary><MapView /></ErrorBoundary>} />
+            <Route path="/analytics" element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
+            <Route path="/planner" element={<ErrorBoundary><RoutePlanner /></ErrorBoundary>} />
           </Routes>
         </main>
       </div>
