@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchStats } from "../api/api";
 import socket from '../socket';
-import { ShieldAlert, Car, Waves, Activity, Radio, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { ShieldAlert, Car, Waves, Activity, Radio, TrendingUp, TrendingDown, Minus, Shield, AlertTriangle, AlertCircle, RefreshCcw } from 'lucide-react';
 import AlertStream from '../components/AlertStream';
 import SectionHeader from '../components/SectionHeader';
+import SensorGrid from '../components/SensorGrid';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area
@@ -111,19 +112,30 @@ const LiveBadge = ({ hasAlerts }) => (
 );
 
 // ── Stat card ────────────────────────────────────────────────────────────────
-const HackStatCard = ({ title, value, icon: Icon, color, trend, sub }) => {
+const HackStatCard = ({ title, value, icon: Icon, color, trend, sub, unit, description, loading }) => {
   const colorMap = {
-    blue:   { text: 'text-sky-400',    bg: 'bg-sky-500/10',    border: 'border-sky-500/20',    bar: 'bg-sky-500',    topBar: 'from-sky-500/70' },
-    red:    { text: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20',    bar: 'bg-red-500',    topBar: 'from-red-500/70' },
-    yellow: { text: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', bar: 'bg-yellow-500', topBar: 'from-yellow-500/70' },
-    green:  { text: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20',  bar: 'bg-green-500',  topBar: 'from-green-500/70' },
+    blue:   { text: 'text-sky-400',    bg: 'bg-sky-500/10',    border: 'border-sky-500/20',    bar: 'bg-sky-500',    topBar: 'from-sky-500/70',    borderLeft: 'border-l-sky-500' },
+    red:    { text: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20',    bar: 'bg-red-500',    topBar: 'from-red-500/70',    borderLeft: 'border-l-red-500' },
+    yellow: { text: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', bar: 'bg-yellow-500', topBar: 'from-yellow-500/70', borderLeft: 'border-l-yellow-500' },
+    green:  { text: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20',  bar: 'bg-green-500',  topBar: 'from-green-500/70',  borderLeft: 'border-l-green-500' },
   };
   const c = colorMap[color] || colorMap.blue;
   const TrendIcon = trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus;
 
   return (
-    <div className={`relative bg-slate-900 rounded-lg border ${c.border} overflow-hidden group hover:brightness-110 transition-all duration-300`}>
+    <div className={`relative bg-slate-900 rounded-lg border ${c.border} border-l-4 ${c.borderLeft} overflow-visible group hover:brightness-110 transition-all duration-300`}>
       <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${c.topBar} via-transparent to-transparent`} />
+      
+      {/* Tooltip */}
+      {description && (
+        <span 
+          role="tooltip" 
+          className="absolute left-1/2 -top-10 -translate-x-1/2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg border border-slate-700 transition-opacity"
+        >
+          {description}
+        </span>
+      )}
+
       <div className="p-5">
         <div className="flex items-start justify-between mb-4">
           <div className={`p-2 rounded ${c.bg} ${c.text}`}>
@@ -136,13 +148,22 @@ const HackStatCard = ({ title, value, icon: Icon, color, trend, sub }) => {
               : 'text-slate-500 border-slate-700 bg-slate-800'
             }`}>
               <TrendIcon size={9} />
-              {trend > 0 ? '+' : ''}{trend}%
+              {trend > 0 ? '↑' : trend < 0 ? '↓' : ''} {Math.abs(trend)}% vs yesterday
             </div>
           )}
         </div>
         <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-slate-500 mb-1">{title}</p>
-        <p className={`text-3xl font-bold font-mono ${c.text}`}>{value}</p>
-        {sub && <p className="text-[9px] font-mono text-slate-600 mt-1 tracking-wide">{sub}</p>}
+        
+        {loading ? (
+           <div className="animate-pulse bg-slate-700 rounded h-8 w-24 mt-1 mb-1"></div>
+        ) : (
+           <>
+             <p className={`text-3xl font-bold font-mono ${c.text}`}>{value}</p>
+             {unit && <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest block">{unit}</p>}
+           </>
+        )}
+        
+        {sub && !loading && <p className="text-[9px] font-mono text-slate-600 mt-1 tracking-wide">{sub}</p>}
       </div>
       <div className={`absolute bottom-0 left-0 h-px w-0 group-hover:w-full transition-all duration-700 ${c.bar}`} />
     </div>
@@ -159,6 +180,107 @@ const Panel = ({ title, tag, children }) => (
     {children}
   </div>
 );
+
+// ── City Risk Banner ─────────────────────────────────────────────────────────────
+const CityRiskBanner = () => {
+  const [riskData, setRiskData] = useState({ riskScore: 0, level: 'SAFE' });
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+
+  const fetchAIAnalytics = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/ai-analytics');
+      if (res.ok) {
+        const data = await res.json();
+        setRiskData(data);
+        setLastUpdated(new Date());
+      }
+    } catch (err) {
+      // Keep existing data if fetch fails
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAIAnalytics();
+    const interval = setInterval(fetchAIAnalytics, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getTimeString = () => {
+    return lastUpdated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  };
+
+  const getBannerStyle = () => {
+    switch (riskData.level) {
+      case 'SAFE':
+        return {
+          bg: 'bg-green-900/40 border border-green-700/50',
+          icon: Shield,
+          iconColor: 'text-green-400',
+          title: 'City Status: All Clear',
+          titleColor: 'text-green-300',
+        };
+      case 'WARNING':
+        return {
+          bg: 'bg-yellow-900/40 border border-yellow-700/50',
+          icon: AlertTriangle,
+          iconColor: 'text-yellow-400',
+          title: 'City Status: Elevated Risk',
+          titleColor: 'text-yellow-300',
+        };
+      case 'CRITICAL':
+        return {
+          bg: 'bg-red-900/50 border border-red-700/50 animate-pulse',
+          icon: AlertCircle,
+          iconColor: 'text-red-400',
+          title: 'City Status: CRITICAL — Action Required',
+          titleColor: 'text-red-200',
+        };
+      default:
+        return {
+          bg: 'bg-slate-900 border border-slate-700',
+          icon: Shield,
+          iconColor: 'text-slate-400',
+          title: 'City Status: Unknown',
+          titleColor: 'text-slate-300',
+        };
+    }
+  };
+
+  const style = getBannerStyle();
+  const IconComponent = style.icon;
+
+  return (
+    <div className={`w-full ${style.bg} rounded-lg p-5 flex items-center justify-between mb-6 transition-all duration-500`}>
+      <div className="flex items-center gap-4">
+        <div className={`p-3 rounded-lg ${style.iconColor} opacity-80`}>
+          {loading ? (
+            <RefreshCcw size={24} className="animate-spin" />
+          ) : (
+            <IconComponent size={24} />
+          )}
+        </div>
+        <div>
+          <h2 className={`text-lg font-bold ${style.titleColor}`}>
+            {style.title}
+          </h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Last updated: {getTimeString()}
+          </p>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-3xl font-bold font-mono text-white">
+          {riskData.riskScore}
+        </p>
+        <p className="text-xs text-slate-400 mt-1">Risk Score</p>
+      </div>
+    </div>
+  );
+};
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 const Dashboard = () => {
@@ -260,19 +382,11 @@ setStats(res.data);
 
   const hasCritical = alerts.some(a => a.priority === 'Critical');
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen gap-3 text-slate-500 bg-slate-950">
-        <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs font-mono tracking-widest uppercase animate-pulse">
-          Syncing SafeCity AI...
-        </span>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6 bg-slate-950 min-h-full">
+
+      {/* City Risk Banner */}
+      <CityRiskBanner />
 
       {/* Header */}
       <SectionHeader
@@ -282,11 +396,71 @@ setStats(res.data);
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <HackStatCard title="Total Fleet"      value={stats.drivers}    icon={Car}        color="blue"   sub="ACTIVE VEHICLES" />
-        <HackStatCard title="Violations (24h)" value={stats.violations} icon={ShieldAlert} color="red"    trend={12} sub="VS YESTERDAY" />
-        <HackStatCard title="Disaster Events"  value={stats.disasters}  icon={Waves}       color="yellow" sub="ACTIVE INCIDENTS" />
-        <HackStatCard title="AI Risk Index"    value={stats.riskLevel}  icon={Activity}    color="green"  sub="CITY-WIDE THREAT LEVEL" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* Fleet Status Group */}
+        <div>
+          <h4 className="text-[9px] font-mono text-slate-600 tracking-[0.2em] uppercase mb-3">FLEET STATUS</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <HackStatCard 
+              title="Total Fleet"      
+              value={stats.drivers}    
+              icon={Car}        
+              color="blue"   
+              sub="ACTIVE VEHICLES" 
+              loading={loading}
+              unit="vehicles"
+              description="Total number of active registered city vehicles"
+            />
+            <HackStatCard 
+              title="AI Risk Index"    
+              value={stats.riskLevel}  
+              icon={Activity}    
+              color="green"  
+              sub="CITY-WIDE THREAT LEVEL" 
+              loading={loading}
+              unit="threat level"
+              description="Aggregated risk score from predictive models"
+            />
+          </div>
+        </div>
+
+        {/* Safety Metrics Group */}
+        <div>
+          <h4 className="text-[9px] font-mono text-slate-600 tracking-[0.2em] uppercase mb-3">SAFETY METRICS</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <HackStatCard 
+              title="Violations (24h)" 
+              value={stats.violations} 
+              icon={ShieldAlert} 
+              color="red"    
+              trend={12} 
+              sub="VS YESTERDAY" 
+              loading={loading}
+              unit="incidents"
+              description="Total traffic and safety violations recorded in the last 24 hours"
+            />
+            <HackStatCard 
+              title="Disaster Events"  
+              value={stats.disasters}  
+              icon={Waves}       
+              color="yellow" 
+              sub="ACTIVE INCIDENTS" 
+              loading={loading}
+              unit="active"
+              description="Ongoing environmental or infrastructure emergencies"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Sensor Grid */}
+      <div>
+        <SectionHeader
+          title="Traffic Sensors"
+          subtitle="Real-time speed and congestion monitoring"
+        />
+        <SensorGrid />
       </div>
 
       {/* Main grid */}
