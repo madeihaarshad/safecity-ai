@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, AlertTriangle, CloudRain, Map as MapIcon, BarChart3, Navigation, Bell, BellRing, X } from "lucide-react";
+import { LayoutDashboard, Users, AlertTriangle, CloudRain, Map as MapIcon, BarChart3, Navigation, Bell, BellRing, X, ChevronLeft, ChevronRight, Menu } from "lucide-react";
 
 import Dashboard from "./pages/Dashboard";
 import Drivers from "./pages/Drivers";
@@ -12,27 +12,31 @@ import RoutePlanner from "./pages/RoutePlanner";
 import socket from "./socket";
 import Toast from "./components/Toast";
 
-const SidebarLink = ({ to, icon: Icon, label }) => {
+const SidebarLink = ({ to, icon: Icon, label, collapsed, onClick }) => {
   const location = useLocation();
   const isActive = location.pathname === to;
 
   return (
     <Link
       to={to}
-      title={label}
+      onClick={onClick}
+      title={collapsed ? label : undefined}
       aria-current={isActive ? "page" : undefined}
-      className={`group relative flex items-center gap-3 px-4 py-3 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-        isActive 
-          ? "bg-slate-800 text-white font-bold border-l-2 border-accent" 
+      className={`group relative flex items-center py-3 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${isActive
+          ? "bg-slate-800 text-white font-bold border-l-2 border-accent"
           : "text-slate-400 hover:bg-slate-800 border-l-2 border-transparent"
-      }`}
+        } ${collapsed ? 'justify-center px-0 gap-0' : 'px-4 gap-3'}`}
     >
-      <Icon size={20} className={isActive ? "text-accent" : ""} />
-      <span>{label}</span>
-      {/* Custom CSS tooltip */}
-      <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+      <Icon size={20} className={`shrink-0 ${isActive ? "text-accent" : ""}`} />
+      <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${collapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"}`}>
         {label}
       </span>
+      {/* Custom CSS tooltip */}
+      {collapsed && (
+        <span className="absolute left-[calc(100%+1rem)] top-1/2 -translate-y-1/2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+          {label}
+        </span>
+      )}
     </Link>
   );
 };
@@ -65,8 +69,8 @@ const NotificationBell = () => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target) && 
-          bellRef.current && !bellRef.current.contains(e.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target) &&
+        bellRef.current && !bellRef.current.contains(e.target)) {
         setIsOpen(false);
       }
     };
@@ -199,7 +203,7 @@ const NotificationBell = () => {
   );
 };
 
-const TopHeader = () => {
+const TopHeader = ({ onMenuClick, isMobile }) => {
   const location = useLocation();
   const [time, setTime] = useState(new Date());
 
@@ -222,8 +226,13 @@ const TopHeader = () => {
   return (
     <header className="h-14 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 flex items-center justify-between px-6 z-10 shrink-0">
       <div className="flex items-center gap-4">
+        {isMobile && (
+          <button onClick={onMenuClick} className="md:hidden p-1.5 -ml-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+            <Menu size={20} />
+          </button>
+        )}
         <h2 className="font-bold text-white text-lg">{getPageTitle(location.pathname)}</h2>
-        <div className="text-slate-400 text-sm font-mono bg-slate-800/50 px-2 py-1 rounded">
+        <div className="text-slate-400 text-sm font-mono bg-slate-800/50 px-2 py-1 rounded hidden sm:block">
           {formatTime(time)}
         </div>
       </div>
@@ -231,9 +240,9 @@ const TopHeader = () => {
         <NotificationBell />
         <div className="flex items-center gap-3 border-l border-slate-700 pl-4">
           <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-sm font-bold text-accent border border-slate-700">
-             <Users size={16} />
+            <Users size={16} />
           </div>
-          <span className="text-sm font-semibold text-white">SafeCity AI</span>
+          <span className="text-sm font-semibold text-white hidden sm:block">SafeCity AI</span>
         </div>
       </div>
     </header>
@@ -241,36 +250,91 @@ const TopHeader = () => {
 };
 
 const AppContent = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('safecity-sidebar');
+    if (saved !== null) {
+      return JSON.parse(saved);
+    }
+    return window.innerWidth >= 768;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile((prev) => {
+        if (!prev && mobile) {
+          setSidebarOpen(false);
+        }
+        return mobile;
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('safecity-sidebar', JSON.stringify(sidebarOpen));
+  }, [sidebarOpen]);
+
+  const isCollapsed = !sidebarOpen && !isMobile;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden relative bg-dark">
+      {/* Mobile Backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-20 backdrop-blur-sm transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
-        <div className="p-6 border-b border-slate-800">
-          <h1 className="text-xl font-bold text-accent flex items-center gap-2">
-            <div className="w-8 h-8 bg-accent rounded flex items-center justify-center text-dark">S</div>
-            SafeCity AI
+      <aside
+        className={`
+          ${isMobile ? "fixed inset-y-0 left-0 z-30" : "relative z-20"}
+          bg-slate-900 border-r border-slate-800 flex flex-col shrink-0
+          transition-all duration-300 ease-in-out
+          ${isMobile
+            ? (sidebarOpen ? "w-64 translate-x-0" : "w-64 -translate-x-full")
+            : (sidebarOpen ? "w-64" : "w-16")
+          }
+        `}
+      >
+        <div className="relative p-6 border-b border-slate-800 flex items-center min-h-[81px] overflow-hidden">
+          <h1 className={`text-xl font-bold text-accent flex items-center gap-2 transition-all duration-300 ${isCollapsed ? 'opacity-0 translate-x-[-20px]' : 'opacity-100 translate-x-0'}`}>
+            <div className="w-8 h-8 bg-accent rounded flex items-center justify-center text-dark shrink-0">S</div>
+            <span className="whitespace-nowrap">SafeCity AI</span>
           </h1>
+
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className={`absolute top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-all z-10 ${isCollapsed ? 'left-1/2 -translate-x-1/2' : 'right-4'}`}
+            title={sidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+          >
+            {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+          </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <SidebarLink to="/" icon={LayoutDashboard} label="Dashboard" />
-          <SidebarLink to="/drivers" icon={Users} label="Drivers" />
-          <SidebarLink to="/violations" icon={AlertTriangle} label="Violations" />
-          <SidebarLink to="/disasters" icon={CloudRain} label="Disaster Hub" />
-          <SidebarLink to="/map" icon={MapIcon} label="Live Map" />
-          <SidebarLink to="/analytics" icon={BarChart3} label="AI Analytics" />
-          <SidebarLink to="/planner" icon={Navigation} label="Route Planner" />
+        <nav className={`flex-1 space-y-2 overflow-y-auto overflow-x-hidden ${isCollapsed ? 'p-2' : 'p-4'}`}>
+          <SidebarLink to="/" icon={LayoutDashboard} label="Dashboard" collapsed={isCollapsed} onClick={() => isMobile && setSidebarOpen(false)} />
+          <SidebarLink to="/drivers" icon={Users} label="Drivers" collapsed={isCollapsed} onClick={() => isMobile && setSidebarOpen(false)} />
+          <SidebarLink to="/violations" icon={AlertTriangle} label="Violations" collapsed={isCollapsed} onClick={() => isMobile && setSidebarOpen(false)} />
+          <SidebarLink to="/disasters" icon={CloudRain} label="Disaster Hub" collapsed={isCollapsed} onClick={() => isMobile && setSidebarOpen(false)} />
+          <SidebarLink to="/map" icon={MapIcon} label="Live Map" collapsed={isCollapsed} onClick={() => isMobile && setSidebarOpen(false)} />
+          <SidebarLink to="/analytics" icon={BarChart3} label="AI Analytics" collapsed={isCollapsed} onClick={() => isMobile && setSidebarOpen(false)} />
+          <SidebarLink to="/planner" icon={Navigation} label="Route Planner" collapsed={isCollapsed} onClick={() => isMobile && setSidebarOpen(false)} />
         </nav>
 
-        <div className="p-4 bg-slate-950 text-[8px] text-slate-500 text-center">
+        <div className={`bg-slate-950 text-[8px] text-slate-500 text-center transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'opacity-0 h-0 p-0 overflow-hidden' : 'p-4 opacity-100'}`}>
           v1.0.4 - System Secure
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-dark">
-        <TopHeader />
+      <div className="flex-1 flex flex-col min-w-0 bg-dark w-full">
+        <TopHeader onMenuClick={() => setSidebarOpen(true)} isMobile={isMobile} />
         <main className="flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
