@@ -1,22 +1,50 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchViolations, detectViolations } from '../api/api';
 import SectionHeader from '../components/SectionHeader';
 import {
   Search, Filter, ExternalLink, Camera, Upload,
-  RefreshCcw, ShieldAlert, Video, VideoOff, Aperture
+  RefreshCcw, ShieldAlert, Video, VideoOff, Aperture, Trash2
 } from 'lucide-react';
 
 const SeverityBadge = ({ level }) => {
   const map = {
-    High:   'bg-red-500/20 text-red-400',
-    Medium: 'bg-orange-500/20 text-orange-400',
-    Low:    'bg-yellow-500/20 text-yellow-400',
+    high:   { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
+    medium: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30' },
+    low:    { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
   };
+  const style = map[level?.toLowerCase()] || map.low;
   return (
-    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${map[level] ?? 'bg-slate-700 text-slate-400'}`}>
+    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${style.bg} ${style.text} ${style.border}`}>
       {level}
     </span>
   );
+};
+
+// Format date helper
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + 
+         ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+};
+
+// Get date range helper
+const getDateRange = (range) => {
+  const now = new Date();
+  const start = new Date();
+  
+  switch(range) {
+    case 'today':
+      start.setHours(0, 0, 0, 0);
+      return { start, end: now };
+    case '7days':
+      start.setDate(start.getDate() - 7);
+      return { start, end: now };
+    case '30days':
+      start.setDate(start.getDate() - 30);
+      return { start, end: now };
+    default:
+      return { start: new Date(0), end: now };
+  }
 };
 
 const Violations = () => {
@@ -25,6 +53,11 @@ const Violations = () => {
   // ── DB violations ────────────────────────────────────────
   const [violations, setViolations] = useState([]);
   const [dbLoading, setDbLoading]   = useState(true);
+
+  // ── Filters ──────────────────────────────────────────────
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // ── YOLO scanner ─────────────────────────────────────────
   const [selectedImage, setSelectedImage] = useState(null);
@@ -43,13 +76,56 @@ const Violations = () => {
 
   useEffect(() => {
     const load = async () => {
-      try { const res = await fetchViolations(); setViolations(res.data); }
+      try { 
+        const res = await fetchViolations(); 
+        setViolations(res.data); 
+      }
       catch {}
       finally { setDbLoading(false); }
     };
     load();
     return () => stopWebcam();
   }, []);
+
+  // ── Client-side filtering ────────────────────────────────
+  const filteredViolations = useMemo(() => {
+    let filtered = [...violations];
+
+    // Filter by severity
+    if (severityFilter !== 'all') {
+      filtered = filtered.filter(v => v.severity?.toLowerCase() === severityFilter.toLowerCase());
+    }
+
+    // Filter by date range
+    if (dateFilter !== 'all') {
+      const { start } = getDateRange(dateFilter);
+      filtered = filtered.filter(v => new Date(v.createdAt) >= start);
+    }
+
+    // Filter by search (location/driverId)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(v => 
+        (v.location && v.location.toLowerCase().includes(query)) ||
+        (v.driverId && v.driverId.toLowerCase().includes(query))
+      );
+    }
+
+    // Sort by Most Recent First (descending by date)
+    filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    return filtered;
+  }, [violations, severityFilter, dateFilter, searchQuery]);
+
+  // ── Calculate summary stats ──────────────────────────────
+  const stats = useMemo(() => {
+    return {
+      total: filteredViolations.length,
+      high: filteredViolations.filter(v => v.severity?.toLowerCase() === 'high').length,
+      medium: filteredViolations.filter(v => v.severity?.toLowerCase() === 'medium').length,
+      low: filteredViolations.filter(v => v.severity?.toLowerCase() === 'low').length,
+    };
+  }, [filteredViolations]);
 
   // ── Webcam helpers ───────────────────────────────────────
   const startWebcam = async () => {
@@ -128,59 +204,163 @@ const Violations = () => {
       <SectionHeader
         title="Traffic Violations"
         subtitle="Database records · YOLO AI violation scanner"
-        actions={
-          <div className="flex gap-2">
-            <button className="p-2 bg-slate-800 rounded border border-slate-700 text-slate-400 hover:text-white"><Search size={18} /></button>
-            <button className="p-2 bg-slate-800 rounded border border-slate-700 text-slate-400 hover:text-white"><Filter size={18} /></button>
-          </div>
-        }
       />
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
         <button onClick={() => setTab('db')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'db' ? 'bg-accent text-dark' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'db' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
           📋 Database Records
         </button>
         <button onClick={() => setTab('yolo')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'yolo' ? 'bg-accent text-dark' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'yolo' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
           🎯 YOLO AI Scanner
         </button>
       </div>
 
-      {/* ── DB Tab ── */}
+      {/* ── DB Tab with Filtering ── */}
       {tab === 'db' && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-900/50 text-slate-400 text-xs uppercase">
-              <tr>
-                <th className="px-6 py-4">Driver</th>
-                <th className="px-6 py-4">Violation Type</th>
-                <th className="px-6 py-4">Severity</th>
-                <th className="px-6 py-4">Fine</th>
-                <th className="px-6 py-4">Time</th>
-                <th className="px-6 py-4">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700 text-sm">
-              {dbLoading && <tr><td colSpan="6" className="px-6 py-10 text-center text-slate-400">Loading…</td></tr>}
-              {!dbLoading && violations.map((v) => (
-                <tr key={v._id} className="hover:bg-slate-700/30 transition-colors">
-                  <td className="px-6 py-4 font-medium">{v.driverId?.name || 'Unknown'}</td>
-                  <td className="px-6 py-4">{v.type}</td>
-                  <td className="px-6 py-4"><SeverityBadge level={v.severity} /></td>
-                  <td className="px-6 py-4">${v.fineAmount}</td>
-                  <td className="px-6 py-4 text-slate-400">{new Date(v.timestamp).toLocaleString()}</td>
-                  <td className="px-6 py-4">
-                    <button className="text-accent hover:underline flex items-center gap-1">Details <ExternalLink size={12} /></button>
-                  </td>
+        <div className="space-y-6">
+          
+          {/* Filter Bar */}
+          <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 space-y-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter size={16} className="text-slate-400" />
+              <span className="text-xs font-mono font-semibold tracking-widest uppercase text-slate-500">Filters</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  tabIndex={1}
+                  placeholder="Search by location or driver ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Severity Dropdown */}
+              <select
+                tabIndex={2}
+                value={severityFilter}
+                onChange={(e) => setSeverityFilter(e.target.value)}
+                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:border-sky-500 focus:outline-none transition-colors"
+              >
+                <option value="all">Severity: All</option>
+                <option value="low">Severity: Low</option>
+                <option value="medium">Severity: Medium</option>
+                <option value="high">Severity: High</option>
+              </select>
+
+              {/* Date Range Dropdown */}
+              <select
+                tabIndex={3}
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:border-sky-500 focus:outline-none transition-colors"
+              >
+                <option value="all">Date: All Time</option>
+                <option value="today">Date: Today</option>
+                <option value="7days">Date: Last 7 Days</option>
+                <option value="30days">Date: Last 30 Days</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 text-center">
+              <p className="text-2xl font-bold text-white">{stats.total}</p>
+              <p className="text-xs font-mono text-slate-500 tracking-widest uppercase mt-1">Total</p>
+            </div>
+            <div className="bg-slate-900 rounded-lg border border-red-500/20 p-4 text-center">
+              <p className="text-2xl font-bold text-red-400">{stats.high}</p>
+              <p className="text-xs font-mono text-red-500/70 tracking-widest uppercase mt-1">High</p>
+            </div>
+            <div className="bg-slate-900 rounded-lg border border-yellow-500/20 p-4 text-center">
+              <p className="text-2xl font-bold text-yellow-400">{stats.medium}</p>
+              <p className="text-xs font-mono text-yellow-500/70 tracking-widest uppercase mt-1">Medium</p>
+            </div>
+            <div className="bg-slate-900 rounded-lg border border-green-500/20 p-4 text-center">
+              <p className="text-2xl font-bold text-green-400">{stats.low}</p>
+              <p className="text-xs font-mono text-green-500/70 tracking-widest uppercase mt-1">Low</p>
+            </div>
+          </div>
+
+          {/* Violations Table */}
+          <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-slate-950 border-b border-slate-800">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Driver ID</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Location</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Speed / Limit</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Severity</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Date</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Actions</th>
                 </tr>
-              ))}
-              {!dbLoading && violations.length === 0 && (
-                <tr><td colSpan="6" className="px-6 py-10 text-center text-slate-500 italic">No violation records found.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {dbLoading && (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center">
+                      <div className="inline-flex items-center gap-3 text-slate-500">
+                        <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-sm font-mono tracking-wide">Loading violations…</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                
+                {!dbLoading && filteredViolations.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500 italic text-sm">
+                      No violations found matching your filters.
+                    </td>
+                  </tr>
+                )}
+
+                {!dbLoading && filteredViolations.map((v) => (
+                  <tr key={v._id} className="cursor-pointer hover:bg-slate-800/60 transition-colors">
+                    <td className="px-6 py-4 font-mono text-sm text-white">{v.driverId}</td>
+                    <td className="px-6 py-4 text-sm text-slate-300">{v.location}</td>
+                    <td className="px-6 py-4 font-mono text-sm">
+                      <span className="text-white">{v.speed}</span>
+                      <span className="text-slate-500 mx-1">/</span>
+                      <span className="text-slate-400">{v.speedLimit}</span>
+                      <span className="text-slate-600 text-xs ml-1">km/h</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <SeverityBadge level={v.severity} />
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-400 font-mono">
+                      {formatDate(v.createdAt)}
+                    </td>
+                    <td className="px-6 py-4 flex gap-3 items-center">
+                      <button className="text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 text-sm font-medium">
+                        <ExternalLink size={14} /> View
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm("Delete this violation? This cannot be undone.")) {
+                            // Empty block
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-300 transition-colors flex items-center gap-1 text-sm font-medium"
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

@@ -1,75 +1,283 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import SectionHeader from '../components/SectionHeader';
-import { User, ShieldCheck, MapPin } from 'lucide-react';
+import { User, ShieldCheck, AlertCircle, Eye, Trash2 } from 'lucide-react';
+
+// ── Loading skeleton ─────────────────────────────────────────────────────────
+const LoadingSkeleton = () => (
+  <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+    <table className="w-full">
+      <thead className="bg-slate-950 border-b border-slate-800">
+        <tr>
+          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Driver Name</th>
+          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">License ID</th>
+          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Safety Score</th>
+          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Risk Level</th>
+          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Violations</th>
+          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Action</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-800">
+        {[1, 2, 3].map((i) => (
+          <tr key={i} className="hover:bg-slate-800/40 transition-colors">
+            <td colSpan="6" className="px-6 py-4">
+              <div className="space-y-2">
+                <div className="h-4 bg-slate-800 rounded animate-pulse"></div>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+// ── Risk level badge ────────────────────────────────────────────────────────
+const RiskBadge = ({ score }) => {
+  let color, label;
+  if (score >= 80) {
+    color = 'bg-green-500/20 text-green-400 border-green-500/30';
+    label = 'Safe Driver';
+  } else if (score >= 50) {
+    color = 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+    label = 'Moderate Risk';
+  } else {
+    color = 'bg-red-500/20 text-red-400 border-red-500/30';
+    label = 'High Risk';
+  }
+  return (
+    <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${color}`}>
+      {label}
+    </span>
+  );
+};
+
+// ── Score progress bar ──────────────────────────────────────────────────────
+const ScoreProgressBar = ({ score }) => {
+  let bgColor = 'bg-red-500';
+  if (score >= 80) bgColor = 'bg-green-500';
+  else if (score >= 50) bgColor = 'bg-yellow-500';
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+        <div
+          className={`h-full ${bgColor} transition-all duration-300`}
+          style={{ width: `${score}%` }}
+        ></div>
+      </div>
+      <span className="text-sm font-mono font-bold text-white min-w-12 text-right">
+        {Math.round(score)}
+      </span>
+    </div>
+  );
+};
 
 const Drivers = () => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDrivers = async () => {
+    const fetchDriversWithScores = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/drivers');
-        setDrivers(res.data);
+        // Fetch all drivers
+        const driversRes = await axios.get('http://localhost:5000/api/drivers');
+        const driversList = driversRes.data;
+
+        // Fetch safety scores for all drivers in parallel
+        const scoresPromises = driversList.map(driver =>
+          axios.get(`http://localhost:5000/api/drivers/${driver._id}/score`)
+            .then(res => ({
+              ...driver,
+              safetyScore: res.data.safetyScore,
+              violationCount: res.data.violationCount,
+              breakdown: res.data.breakdown
+            }))
+            .catch(err => {
+              console.error(`Failed to fetch score for driver ${driver._id}:`, err);
+              // Fallback: use default score
+              return {
+                ...driver,
+                safetyScore: 100,
+                violationCount: 0,
+                breakdown: { high: 0, medium: 0, low: 0 }
+              };
+            })
+        );
+
+        const driversWithScores = await Promise.all(scoresPromises);
+
+        // Sort by most recent first (descending by date)
+        driversWithScores.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+          const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+          return dateB - dateA;
+        });
+
+        setDrivers(driversWithScores);
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching drivers:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchDrivers();
+
+    fetchDriversWithScores();
   }, []);
 
   return (
     <div className="p-8">
-      <SectionHeader title="Fleet Management" subtitle="Monitor active drivers and safety scores" />
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {drivers.length > 0 ? drivers.map(driver => (
-          <div key={driver._id} className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">
-                {driver.name.charAt(0)}
-              </div>
-              <div>
-                <h3 className="font-bold">{driver.name}</h3>
-                <p className="text-xs text-slate-400">{driver.vehiclePlate}</p>
-              </div>
-              <div className="ml-auto flex flex-col items-end">
-                <span className={`text-[10px] px-2 py-0.5 rounded ${
-                  driver.status === 'Active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-700 text-slate-400'
-                }`}>
-                  {driver.status}
-                </span>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400 flex items-center gap-1"><ShieldCheck size={14}/> Safety Score</span>
-                <span className={`font-bold ${driver.safetyScore > 80 ? 'text-green-400' : 'text-red-400'}`}>
-                  {driver.safetyScore}/100
-                </span>
-              </div>
-              <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full ${driver.safetyScore > 80 ? 'bg-green-500' : 'bg-red-500'}`} 
-                  style={{width: `${driver.safetyScore}%`}}
-                ></div>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-400 mt-4 pt-4 border-t border-slate-700">
-                <MapPin size={12} />
-                <span>Last updated at 14:32</span>
-              </div>
-            </div>
-          </div>
-        )) : (
-            <div className="col-span-full py-20 text-center text-slate-500">
-                No drivers registered in the system.
-            </div>
-        )}
+      <SectionHeader
+        title="Fleet Management"
+        subtitle="Monitor active drivers and safety scores"
+      />
+
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 text-center">
+          <p className="text-2xl font-bold text-white">{drivers.length}</p>
+          <p className="text-xs font-mono text-slate-500 tracking-widest uppercase mt-1">
+            Total Drivers
+          </p>
+        </div>
+        <div className="bg-slate-900 rounded-lg border border-green-500/20 p-4 text-center">
+          <p className="text-2xl font-bold text-green-400">
+            {drivers.filter(d => d.safetyScore >= 80).length}
+          </p>
+          <p className="text-xs font-mono text-green-500/70 tracking-widest uppercase mt-1">
+            Safe
+          </p>
+        </div>
+        <div className="bg-slate-900 rounded-lg border border-yellow-500/20 p-4 text-center">
+          <p className="text-2xl font-bold text-yellow-400">
+            {drivers.filter(d => d.safetyScore >= 50 && d.safetyScore < 80).length}
+          </p>
+          <p className="text-xs font-mono text-yellow-500/70 tracking-widest uppercase mt-1">
+            Moderate
+          </p>
+        </div>
+        <div className="bg-slate-900 rounded-lg border border-red-500/20 p-4 text-center">
+          <p className="text-2xl font-bold text-red-400">
+            {drivers.filter(d => d.safetyScore < 50).length}
+          </p>
+          <p className="text-xs font-mono text-red-500/70 tracking-widest uppercase mt-1">
+            High Risk
+          </p>
+        </div>
       </div>
+
+      {/* Drivers table */}
+      {loading ? (
+        <LoadingSkeleton />
+      ) : (
+        <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="bg-slate-950 border-b border-slate-800">
+              <tr>
+                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                  Driver Name
+                </th>
+                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                  License ID
+                </th>
+                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                  Safety Score
+                </th>
+                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                  Risk Level
+                </th>
+                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                  Violations
+                </th>
+                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {drivers.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle size={32} className="opacity-30" />
+                      <p className="text-sm">No drivers registered in the system.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                drivers.map((driver) => (
+                  <tr key={driver._id} className="cursor-pointer hover:bg-slate-800/60 transition-colors">
+                    {/* Driver Name */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white">
+                          {driver.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-medium text-white">{driver.name}</span>
+                      </div>
+                    </td>
+
+                    {/* License ID */}
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-sm text-slate-400">
+                        {driver.licenseNumber}
+                      </span>
+                    </td>
+
+                    {/* Safety Score */}
+                    <td className="px-6 py-4">
+                      <ScoreProgressBar score={driver.safetyScore} />
+                    </td>
+
+                    {/* Risk Level */}
+                    <td className="px-6 py-4">
+                      <RiskBadge score={driver.safetyScore} />
+                    </td>
+
+                    {/* Violations */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-white">
+                          {driver.violationCount}
+                        </span>
+                        <div className="text-xs text-slate-500">
+                          <span className="text-red-500">↑{driver.breakdown?.high || 0}</span>
+                          <span className="mx-1">·</span>
+                          <span className="text-yellow-500">↑{driver.breakdown?.medium || 0}</span>
+                          <span className="mx-1">·</span>
+                          <span className="text-green-500">↑{driver.breakdown?.low || 0}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Action */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-sm text-slate-300 hover:text-white font-medium">
+                          <Eye size={14} />
+                          View
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm("Delete this driver? This cannot be undone.")) {
+                              // Empty block
+                            }
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors text-sm font-medium border border-transparent hover:border-red-500/30"
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
