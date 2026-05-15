@@ -5,14 +5,14 @@ import Breadcrumb from '../components/Breadcrumb';
 import { SkeletonTable } from '../components/Skeleton';
 import {
   Search, Filter, ExternalLink, Camera, Upload,
-  RefreshCcw, ShieldAlert, Video, VideoOff, Aperture, Trash2, X
+  RefreshCcw, ShieldAlert, Video, VideoOff, Aperture, Trash2, X, WifiOff
 } from 'lucide-react';
 
 const SeverityBadge = ({ level }) => {
   const map = {
-    high:   { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
+    high: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
     medium: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30' },
-    low:    { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
+    low: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
   };
   const style = map[level?.toLowerCase()] || map.low;
   return (
@@ -25,16 +25,16 @@ const SeverityBadge = ({ level }) => {
 // Format date helper
 const formatDate = (dateString) => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + 
-         ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+    ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
 };
 
 // Get date range helper
 const getDateRange = (range) => {
   const now = new Date();
   const start = new Date();
-  
-  switch(range) {
+
+  switch (range) {
     case 'today':
       start.setHours(0, 0, 0, 0);
       return { start, end: now };
@@ -50,11 +50,12 @@ const getDateRange = (range) => {
 };
 
 const Violations = () => {
-  const [tab, setTab]               = useState('db');
+  const [tab, setTab] = useState('db');
 
   // ── DB violations ────────────────────────────────────────
   const [violations, setViolations] = useState([]);
-  const [dbLoading, setDbLoading]   = useState(true);
+  const [dbLoading, setDbLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [secondsAgo, setSecondsAgo] = useState(0);
 
@@ -72,13 +73,13 @@ const Violations = () => {
 
   const [showFilterBanner, setShowFilterBanner] = useState(false);
   const [activeFilterStr, setActiveFilterStr] = useState('');
-  
+
   useEffect(() => {
     const activeFilters = [];
     if (searchQuery.trim()) activeFilters.push(`Search: ${searchQuery}`);
     if (severityFilter !== 'all') activeFilters.push(`Severity: ${severityFilter}`);
     if (dateFilter !== 'all') activeFilters.push(`Date: ${dateFilter}`);
-    
+
     if (activeFilters.length > 0) {
       setActiveFilterStr(activeFilters.join(', '));
       setShowFilterBanner(true);
@@ -89,34 +90,42 @@ const Violations = () => {
 
   // ── YOLO scanner ─────────────────────────────────────────
   const [selectedImage, setSelectedImage] = useState(null);
-  const [imageBase64, setImageBase64]     = useState(null);
-  const [scanning, setScanning]           = useState(false);
-  const [scanResult, setScanResult]       = useState(null);
-  const fileInputRef                      = useRef(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const fileInputRef = useRef(null);
 
   // ── Webcam ───────────────────────────────────────────────
-  const [camMode, setCamMode]   = useState(false);
+  const [camMode, setCamMode] = useState(false);
   const [camReady, setCamReady] = useState(false);
   const [camError, setCamError] = useState(null);
-  const videoRef                = useRef(null);
-  const streamRef               = useRef(null);
-  const canvasRef               = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const loadViolations = async () => {
+    setDbLoading(true);
+    setDbError(false);
+    try {
+      const res = await fetchViolations();
+      if (res.data) {
+        setViolations(res.data);
+        setLastUpdated(new Date());
+        setDbError(false);
+        window.dispatchEvent(new CustomEvent('data-sync'));
+      }
+    }
+    catch {
+      setDbError(true);
+    }
+    finally { 
+      setDbLoading(false); 
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try { 
-        const res = await fetchViolations(); 
-        if (res.data) {
-          setViolations(res.data);
-          setLastUpdated(new Date());
-          window.dispatchEvent(new CustomEvent('data-sync'));
-        }
-      }
-      catch {}
-      finally { setDbLoading(false); }
-    };
-    load();
-    const interval = setInterval(load, 30000);
+    loadViolations();
+    const interval = setInterval(loadViolations, 30000);
     return () => {
       stopWebcam();
       clearInterval(interval);
@@ -141,7 +150,7 @@ const Violations = () => {
     // Filter by search (location/driverId)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(v => 
+      filtered = filtered.filter(v =>
         (v.location && v.location.toLowerCase().includes(query)) ||
         (v.driverId && v.driverId.toLowerCase().includes(query))
       );
@@ -199,9 +208,9 @@ const Violations = () => {
 
   const captureFrame = () => {
     if (!videoRef.current || !canvasRef.current) return;
-    const video  = videoRef.current;
+    const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width  = video.videoWidth;
+    canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
@@ -238,7 +247,7 @@ const Violations = () => {
   return (
     <div className="p-8 space-y-6">
       <Breadcrumb crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Violations' }]} />
-      
+
       <div className="flex flex-col gap-2">
         <SectionHeader
           title="Traffic Violations"
@@ -250,7 +259,12 @@ const Violations = () => {
       {showFilterBanner && (
         <div className="flex items-center justify-between bg-sky-950/40 border border-sky-500/30 text-sky-400 text-xs px-4 py-3 rounded-lg mb-4">
           <span>Showing {filteredViolations.length} results for '{activeFilterStr}'</span>
-          <button onClick={() => setShowFilterBanner(false)} className="hover:text-white transition-colors">
+          <button 
+            onClick={() => setShowFilterBanner(false)} 
+            className="hover:text-white transition-colors"
+            aria-label="Close filter banner"
+            title="Close filter banner"
+          >
             <X size={14} />
           </button>
         </div>
@@ -258,12 +272,20 @@ const Violations = () => {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
-        <button onClick={() => setTab('db')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'db' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+        <button 
+          onClick={() => setTab('db')}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'db' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+          aria-label="View database records"
+          title="View database records"
+        >
           📋 Database Records
         </button>
-        <button onClick={() => setTab('yolo')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'yolo' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+        <button 
+          onClick={() => setTab('yolo')}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'yolo' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+          aria-label="Open YOLO AI scanner"
+          title="Open YOLO AI scanner"
+        >
           🎯 YOLO AI Scanner
         </button>
       </div>
@@ -271,7 +293,7 @@ const Violations = () => {
       {/* ── DB Tab with Filtering ── */}
       {tab === 'db' && (
         <div className="space-y-6">
-          
+
           {/* Filter Bar */}
           <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 space-y-4">
             <div className="flex items-center gap-2 mb-3">
@@ -341,6 +363,27 @@ const Violations = () => {
             </div>
           </div>
 
+          {/* Error State */}
+          {dbError && (
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-6 text-center">
+              <div className="flex justify-center mb-3">
+                <WifiOff size={32} className="text-orange-400" />
+              </div>
+              <h3 className="text-lg font-bold text-orange-300 mb-2">
+                Unable to reach SafeCity servers
+              </h3>
+              <p className="text-sm text-orange-400/80 mb-4">
+                Showing last known data. Live updates paused.
+              </p>
+              <button
+                onClick={loadViolations}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors"
+              >
+                Retry Connection
+              </button>
+            </div>
+          )}
+
           {/* Violations Table */}
           <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden min-h-[400px]">
             <table className="w-full text-left">
@@ -359,51 +402,57 @@ const Violations = () => {
                   <SkeletonTable rows={8} />
                 ) : (
                   <>
-                
-                {!dbLoading && filteredViolations.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500 italic text-sm">
-                      No violations found matching your filters.
-                    </td>
-                  </tr>
-                )}
 
-                {!dbLoading && filteredViolations.map((v) => (
-                  <tr key={v._id} className="cursor-pointer hover:bg-slate-800/60 transition-colors">
-                    <td className="px-6 py-4 font-mono text-sm text-white">{v.driverId}</td>
-                    <td className="px-6 py-4 text-sm text-slate-300">{v.location}</td>
-                    <td className="px-6 py-4 font-mono text-sm">
-                      <span className="text-white">{v.speed}</span>
-                      <span className="text-slate-500 mx-1">/</span>
-                      <span className="text-slate-400">{v.speedLimit}</span>
-                      <span className="text-slate-600 text-xs ml-1">km/h</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <SeverityBadge level={v.severity} />
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-400 font-mono">
-                      {formatDate(v.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 flex gap-3 items-center">
-                      <button className="text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 text-sm font-medium">
-                        <ExternalLink size={14} /> View
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm("Delete this violation? This cannot be undone.")) {
-                            // Empty block
-                          }
-                        }}
-                        className="text-red-400 hover:text-red-300 transition-colors flex items-center gap-1 text-sm font-medium"
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                </>
-              )}
+                    {!dbLoading && filteredViolations.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-12 text-center text-slate-500 italic text-sm">
+                          No violations found matching your filters.
+                        </td>
+                      </tr>
+                    )}
+
+                    {!dbLoading && filteredViolations.map((v) => (
+                      <tr key={v._id} className="cursor-pointer hover:bg-slate-800/60 transition-colors">
+                        <td className="px-6 py-4 font-mono text-sm text-white">{v.driverId}</td>
+                        <td className="px-6 py-4 text-sm text-slate-300">{v.location}</td>
+                        <td className="px-6 py-4 font-mono text-sm">
+                          <span className="text-white">{v.speed}</span>
+                          <span className="text-slate-500 mx-1">/</span>
+                          <span className="text-slate-400">{v.speedLimit}</span>
+                          <span className="text-slate-600 text-xs ml-1">km/h</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <SeverityBadge level={v.severity} />
+                        </td>
+                        <td className="px-6 py-4 text-xs text-slate-400 font-mono">
+                          {formatDate(v.createdAt)}
+                        </td>
+                        <td className="px-6 py-4 flex gap-3 items-center">
+                          <button 
+                            className="text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 text-sm font-medium"
+                            aria-label={`View violation details for ${v.driverId}`}
+                            title="View violation details"
+                          >
+                            <ExternalLink size={14} /> View
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm("Delete this violation? This cannot be undone.")) {
+                                // Empty block
+                              }
+                            }}
+                            className="text-red-400 hover:text-red-300 transition-colors flex items-center gap-1 text-sm font-medium"
+                            aria-label={`Delete violation for ${v.driverId}`}
+                            title="Delete violation"
+                          >
+                            <Trash2 size={14} /> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                )}
               </tbody>
             </table>
           </div>
@@ -429,16 +478,19 @@ const Violations = () => {
               <button
                 onClick={() => { stopWebcam(); fileInputRef.current?.click(); }}
                 className="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl text-sm font-semibold transition-colors"
+                aria-label="Upload image file"
+                title="Upload image file"
               >
                 <Upload size={16} /> Upload Image
               </button>
               <button
                 onClick={camMode ? stopWebcam : startWebcam}
-                className={`flex items-center justify-center gap-2 py-3 border rounded-xl text-sm font-semibold transition-colors ${
-                  camMode
+                className={`flex items-center justify-center gap-2 py-3 border rounded-xl text-sm font-semibold transition-colors ${camMode
                     ? 'bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30'
                     : 'bg-accent/20 border-accent/50 text-accent hover:bg-accent/30'
-                }`}
+                  }`}
+                aria-label={camMode ? "Stop camera" : "Start live camera"}
+                title={camMode ? "Stop camera" : "Start live camera"}
               >
                 {camMode ? <><VideoOff size={16} /> Stop</> : <><Video size={16} /> Live Camera</>}
               </button>
@@ -469,8 +521,13 @@ const Violations = () => {
                   )}
                 </div>
                 <canvas ref={canvasRef} className="hidden" />
-                <button onClick={captureFrame} disabled={!camReady}
-                  className="w-full py-3 bg-accent text-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                <button 
+                  onClick={captureFrame} 
+                  disabled={!camReady}
+                  className="w-full py-3 bg-accent text-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Capture frame from camera"
+                  title="Capture frame from camera"
+                >
                   <Aperture size={18} /> Capture Frame
                 </button>
               </div>
@@ -490,8 +547,13 @@ const Violations = () => {
               </div>
             )}
 
-            <button onClick={runScan} disabled={!imageBase64 || scanning || camMode}
-              className="w-full py-3 bg-accent text-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button 
+              onClick={runScan} 
+              disabled={!imageBase64 || scanning || camMode}
+              className="w-full py-3 bg-accent text-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Scan image for violations"
+              title="Scan image for violations"
+            >
               {scanning
                 ? <><RefreshCcw className="animate-spin" size={18} /> Scanning…</>
                 : <><ShieldAlert size={18} /> Scan for Violations</>}
