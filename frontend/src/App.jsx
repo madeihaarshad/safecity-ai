@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, AlertTriangle, CloudRain, Map as MapIcon, BarChart3, Navigation, Bell, BellRing, X, ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { LayoutDashboard, Users, AlertTriangle, CloudRain, Map as MapIcon, BarChart3, Navigation, Bell, BellRing, ChevronLeft, ChevronRight, Menu, HelpCircle } from "lucide-react";
 
 import Dashboard from "./pages/Dashboard";
 import Drivers from "./pages/Drivers";
@@ -11,6 +11,8 @@ import Analytics from "./pages/Analytics";
 import RoutePlanner from "./pages/RoutePlanner";
 import socket from "./socket";
 import Toast from "./components/Toast";
+import HelpPanel from "./components/HelpPanel";
+import WelcomeModal from "./components/WelcomeModal";
 
 const SidebarLink = ({ to, icon: Icon, label, collapsed, onClick }) => {
   const location = useLocation();
@@ -203,7 +205,7 @@ const NotificationBell = () => {
   );
 };
 
-const TopHeader = ({ onMenuClick, isMobile }) => {
+const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
   const location = useLocation();
   const [time, setTime] = useState(new Date());
 
@@ -227,7 +229,11 @@ const TopHeader = ({ onMenuClick, isMobile }) => {
     <header className="h-14 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 flex items-center justify-between px-6 z-10 shrink-0">
       <div className="flex items-center gap-4">
         {isMobile && (
-          <button onClick={onMenuClick} className="md:hidden p-1.5 -ml-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+          <button 
+            onClick={onMenuClick} 
+            className="md:hidden p-1.5 -ml-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            aria-label="Open menu"
+          >
             <Menu size={20} />
           </button>
         )}
@@ -236,7 +242,15 @@ const TopHeader = ({ onMenuClick, isMobile }) => {
           {formatTime(time)}
         </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onHelpClick}
+          className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label="Open help panel"
+          title="Help"
+        >
+          <HelpCircle size={20} />
+        </button>
         <NotificationBell />
         <div className="flex items-center gap-3 border-l border-slate-700 pl-4">
           <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-sm font-bold text-accent border border-slate-700">
@@ -251,6 +265,7 @@ const TopHeader = ({ onMenuClick, isMobile }) => {
 
 const AppContent = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [helpPanelOpen, setHelpPanelOpen] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const saved = localStorage.getItem('safecity-sidebar');
@@ -334,7 +349,11 @@ const AppContent = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-dark w-full">
-        <TopHeader onMenuClick={() => setSidebarOpen(true)} isMobile={isMobile} />
+        <TopHeader 
+          onMenuClick={() => setSidebarOpen(true)} 
+          isMobile={isMobile}
+          onHelpClick={() => setHelpPanelOpen(!helpPanelOpen)}
+        />
         <main className="flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
@@ -347,6 +366,9 @@ const AppContent = () => {
           </Routes>
         </main>
       </div>
+
+      {/* Help Panel */}
+      <HelpPanel isOpen={helpPanelOpen} onClose={() => setHelpPanelOpen(false)} />
     </div>
   );
 };
@@ -356,6 +378,7 @@ const App = () => {
     <Router>
       <AppContent />
       <Toast />
+      <WelcomeModal />
     </Router>
   );
 };
