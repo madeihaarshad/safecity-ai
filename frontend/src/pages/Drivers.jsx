@@ -2,36 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import SectionHeader from '../components/SectionHeader';
 import Breadcrumb from '../components/Breadcrumb';
-import { User, ShieldCheck, AlertCircle, Eye, Trash2 } from 'lucide-react';
-
-// ── Loading skeleton ─────────────────────────────────────────────────────────
-const LoadingSkeleton = () => (
-  <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-    <table className="w-full">
-      <thead className="bg-slate-950 border-b border-slate-800">
-        <tr>
-          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Driver Name</th>
-          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">License ID</th>
-          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Safety Score</th>
-          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Risk Level</th>
-          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Violations</th>
-          <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Action</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-800">
-        {[1, 2, 3].map((i) => (
-          <tr key={i} className="hover:bg-slate-800/40 transition-colors">
-            <td colSpan="6" className="px-6 py-4">
-              <div className="space-y-2">
-                <div className="h-4 bg-slate-800 rounded animate-pulse"></div>
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+import { SkeletonTable } from '../components/Skeleton';
+import { User, ShieldCheck, AlertCircle, Eye, Trash2, X, Search } from 'lucide-react';
 
 // ── Risk level badge ────────────────────────────────────────────────────────
 const RiskBadge = ({ score }) => {
@@ -77,6 +49,32 @@ const ScoreProgressBar = ({ score }) => {
 const Drivers = () => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [secondsAgo, setSecondsAgo] = useState(0);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterBanner, setShowFilterBanner] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsAgo(Math.floor((new Date() - lastUpdated) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastUpdated]);
+
+  const filteredDrivers = React.useMemo(() => {
+    if (!searchQuery.trim()) return drivers;
+    const query = searchQuery.toLowerCase().trim();
+    return drivers.filter(d => 
+      d.name.toLowerCase().includes(query) || 
+      d.licenseId.toLowerCase().includes(query)
+    );
+  }, [drivers, searchQuery]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) setShowFilterBanner(true);
+    else setShowFilterBanner(false);
+  }, [searchQuery]);
 
   useEffect(() => {
     const fetchDriversWithScores = async () => {
@@ -116,6 +114,8 @@ const Drivers = () => {
         });
 
         setDrivers(driversWithScores);
+        setLastUpdated(new Date());
+        window.dispatchEvent(new CustomEvent('data-sync'));
       } catch (err) {
         console.error('Error fetching drivers:', err);
       } finally {
@@ -124,15 +124,42 @@ const Drivers = () => {
     };
 
     fetchDriversWithScores();
+    const interval = setInterval(fetchDriversWithScores, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="p-8">
       <Breadcrumb crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Drivers' }]} />
-      <SectionHeader
-        title="Fleet Management"
-        subtitle="Monitor active drivers and safety scores"
-      />
+      <div className="flex flex-col gap-2 mb-6">
+        <SectionHeader
+          title="Fleet Management"
+          subtitle="Monitor active drivers and safety scores"
+        />
+        <span className="text-[9px] font-mono text-slate-600">Last updated {secondsAgo} seconds ago</span>
+      </div>
+
+      <div className="mb-6 flex gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+          <input
+            type="text"
+            placeholder="Search drivers by name or ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+          />
+        </div>
+      </div>
+
+      {showFilterBanner && (
+        <div className="flex items-center justify-between bg-sky-950/40 border border-sky-500/30 text-sky-400 text-xs px-4 py-3 rounded-lg mb-4">
+          <span>Showing {filteredDrivers.length} results for 'Search: {searchQuery}'</span>
+          <button onClick={() => setShowFilterBanner(false)} className="hover:text-white transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -169,35 +196,34 @@ const Drivers = () => {
       </div>
 
       {/* Drivers table */}
-      {loading ? (
-        <LoadingSkeleton />
-      ) : (
-        <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-950 border-b border-slate-800">
-              <tr>
-                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
-                  Driver Name
-                </th>
-                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
-                  License ID
-                </th>
-                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
-                  Safety Score
-                </th>
-                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
-                  Risk Level
-                </th>
-                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
-                  Violations
-                </th>
-                <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {drivers.length === 0 ? (
+      <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden min-h-[400px]">
+        <table className="w-full text-left">
+          <thead className="bg-slate-950 border-b border-slate-800">
+            <tr>
+              <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                Driver Name
+              </th>
+              <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                License ID
+              </th>
+              <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                Safety Score
+              </th>
+              <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                Risk Level
+              </th>
+              <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                Violations
+              </th>
+              <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {loading ? (
+              <SkeletonTable rows={8} />
+            ) : filteredDrivers.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center gap-2">
@@ -207,7 +233,7 @@ const Drivers = () => {
                   </td>
                 </tr>
               ) : (
-                drivers.map((driver) => (
+                filteredDrivers.map((driver) => (
                   <tr key={driver._id} className="cursor-pointer hover:bg-slate-800/60 transition-colors">
                     {/* Driver Name */}
                     <td className="px-6 py-4">

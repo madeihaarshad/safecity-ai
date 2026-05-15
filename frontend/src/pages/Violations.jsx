@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchViolations, detectViolations } from '../api/api';
 import SectionHeader from '../components/SectionHeader';
 import Breadcrumb from '../components/Breadcrumb';
+import { SkeletonTable } from '../components/Skeleton';
 import {
   Search, Filter, ExternalLink, Camera, Upload,
-  RefreshCcw, ShieldAlert, Video, VideoOff, Aperture, Trash2
+  RefreshCcw, ShieldAlert, Video, VideoOff, Aperture, Trash2, X
 } from 'lucide-react';
 
 const SeverityBadge = ({ level }) => {
@@ -54,11 +55,37 @@ const Violations = () => {
   // ── DB violations ────────────────────────────────────────
   const [violations, setViolations] = useState([]);
   const [dbLoading, setDbLoading]   = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [secondsAgo, setSecondsAgo] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsAgo(Math.floor((new Date() - lastUpdated) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastUpdated]);
 
   // ── Filters ──────────────────────────────────────────────
   const [severityFilter, setSeverityFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [showFilterBanner, setShowFilterBanner] = useState(false);
+  const [activeFilterStr, setActiveFilterStr] = useState('');
+  
+  useEffect(() => {
+    const activeFilters = [];
+    if (searchQuery.trim()) activeFilters.push(`Search: ${searchQuery}`);
+    if (severityFilter !== 'all') activeFilters.push(`Severity: ${severityFilter}`);
+    if (dateFilter !== 'all') activeFilters.push(`Date: ${dateFilter}`);
+    
+    if (activeFilters.length > 0) {
+      setActiveFilterStr(activeFilters.join(', '));
+      setShowFilterBanner(true);
+    } else {
+      setShowFilterBanner(false);
+    }
+  }, [searchQuery, severityFilter, dateFilter]);
 
   // ── YOLO scanner ─────────────────────────────────────────
   const [selectedImage, setSelectedImage] = useState(null);
@@ -79,13 +106,21 @@ const Violations = () => {
     const load = async () => {
       try { 
         const res = await fetchViolations(); 
-        setViolations(res.data); 
+        if (res.data) {
+          setViolations(res.data);
+          setLastUpdated(new Date());
+          window.dispatchEvent(new CustomEvent('data-sync'));
+        }
       }
       catch {}
       finally { setDbLoading(false); }
     };
     load();
-    return () => stopWebcam();
+    const interval = setInterval(load, 30000);
+    return () => {
+      stopWebcam();
+      clearInterval(interval);
+    };
   }, []);
 
   // ── Client-side filtering ────────────────────────────────
@@ -204,10 +239,22 @@ const Violations = () => {
     <div className="p-8 space-y-6">
       <Breadcrumb crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Violations' }]} />
       
-      <SectionHeader
-        title="Traffic Violations"
-        subtitle="Database records · YOLO AI violation scanner"
-      />
+      <div className="flex flex-col gap-2">
+        <SectionHeader
+          title="Traffic Violations"
+          subtitle="Database records · YOLO AI violation scanner"
+        />
+        <span className="text-[9px] font-mono text-slate-600">Last updated {secondsAgo} seconds ago</span>
+      </div>
+
+      {showFilterBanner && (
+        <div className="flex items-center justify-between bg-sky-950/40 border border-sky-500/30 text-sky-400 text-xs px-4 py-3 rounded-lg mb-4">
+          <span>Showing {filteredViolations.length} results for '{activeFilterStr}'</span>
+          <button onClick={() => setShowFilterBanner(false)} className="hover:text-white transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
@@ -295,7 +342,7 @@ const Violations = () => {
           </div>
 
           {/* Violations Table */}
-          <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+          <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden min-h-[400px]">
             <table className="w-full text-left">
               <thead className="bg-slate-950 border-b border-slate-800">
                 <tr>
@@ -308,16 +355,10 @@ const Violations = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {dbLoading && (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center">
-                      <div className="inline-flex items-center gap-3 text-slate-500">
-                        <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm font-mono tracking-wide">Loading violations…</span>
-                      </div>
-                    </td>
-                  </tr>
-                )}
+                {dbLoading ? (
+                  <SkeletonTable rows={8} />
+                ) : (
+                  <>
                 
                 {!dbLoading && filteredViolations.length === 0 && (
                   <tr>
@@ -361,6 +402,8 @@ const Violations = () => {
                     </td>
                   </tr>
                 ))}
+                </>
+              )}
               </tbody>
             </table>
           </div>

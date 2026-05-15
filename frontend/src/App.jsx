@@ -10,6 +10,7 @@ import MapView from "./pages/MapView";
 import Analytics from "./pages/Analytics";
 import RoutePlanner from "./pages/RoutePlanner";
 import socket from "./socket";
+import Toast from "./components/Toast";
 
 const SidebarLink = ({ to, icon: Icon, label }) => {
   const location = useLocation();
@@ -290,6 +291,7 @@ const App = () => {
   return (
     <Router>
       <AppContent />
+      <Toast />
     </Router>
   );
 };

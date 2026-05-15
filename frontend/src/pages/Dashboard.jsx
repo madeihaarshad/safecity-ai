@@ -5,6 +5,7 @@ import { ShieldAlert, Car, Waves, Activity, Radio, TrendingUp, TrendingDown, Min
 import AlertStream from '../components/AlertStream';
 import SectionHeader from '../components/SectionHeader';
 import Breadcrumb from '../components/Breadcrumb';
+import { SkeletonCard, SkeletonTable } from '../components/Skeleton';
 import SensorGrid from '../components/SensorGrid';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -196,6 +197,7 @@ const CityRiskBanner = () => {
         const data = await res.json();
         setRiskData(data);
         setLastUpdated(new Date());
+        window.dispatchEvent(new CustomEvent('data-sync'));
       }
     } catch (err) {
       // Keep existing data if fetch fails
@@ -320,8 +322,9 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-       const res = await fetchStats();
-setStats(res.data);
+        const res = await fetchStats();
+        setStats(res.data);
+        window.dispatchEvent(new CustomEvent('data-sync'));
       } catch {
         // backend offline — keep default zeros, don't crash
       } finally {
@@ -398,63 +401,69 @@ setStats(res.data);
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Fleet Status Group */}
-        <div>
-          <h4 className="text-[9px] font-mono text-slate-600 tracking-[0.2em] uppercase mb-3">FLEET STATUS</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <HackStatCard 
-              title="Total Fleet"      
-              value={stats.drivers}    
-              icon={Car}        
-              color="blue"   
-              sub="ACTIVE VEHICLES" 
-              loading={loading}
-              unit="vehicles"
-              description="Total number of active registered city vehicles"
-            />
-            <HackStatCard 
-              title="AI Risk Index"    
-              value={stats.riskLevel}  
-              icon={Activity}    
-              color="green"  
-              sub="CITY-WIDE THREAT LEVEL" 
-              loading={loading}
-              unit="threat level"
-              description="Aggregated risk score from predictive models"
-            />
-          </div>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 min-h-[140px]">
+          <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
         </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* Fleet Status Group */}
+          <div>
+            <h4 className="text-[9px] font-mono text-slate-600 tracking-[0.2em] uppercase mb-3">FLEET STATUS</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <HackStatCard 
+                title="Total Fleet"      
+                value={stats.drivers}    
+                icon={Car}        
+                color="blue"   
+                sub="ACTIVE VEHICLES" 
+                loading={loading}
+                unit="vehicles"
+                description="Total number of active registered city vehicles"
+              />
+              <HackStatCard 
+                title="AI Risk Index"    
+                value={stats.riskLevel}  
+                icon={Activity}    
+                color="green"  
+                sub="CITY-WIDE THREAT LEVEL" 
+                loading={loading}
+                unit="threat level"
+                description="Aggregated risk score from predictive models"
+              />
+            </div>
+          </div>
 
-        {/* Safety Metrics Group */}
-        <div>
-          <h4 className="text-[9px] font-mono text-slate-600 tracking-[0.2em] uppercase mb-3">SAFETY METRICS</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <HackStatCard 
-              title="Violations (24h)" 
-              value={stats.violations} 
-              icon={ShieldAlert} 
-              color="red"    
-              trend={12} 
-              sub="VS YESTERDAY" 
-              loading={loading}
-              unit="incidents"
-              description="Total traffic and safety violations recorded in the last 24 hours"
-            />
-            <HackStatCard 
-              title="Disaster Events"  
-              value={stats.disasters}  
-              icon={Waves}       
-              color="yellow" 
-              sub="ACTIVE INCIDENTS" 
-              loading={loading}
-              unit="active"
-              description="Ongoing environmental or infrastructure emergencies"
-            />
+          {/* Safety Metrics Group */}
+          <div>
+            <h4 className="text-[9px] font-mono text-slate-600 tracking-[0.2em] uppercase mb-3">SAFETY METRICS</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <HackStatCard 
+                title="Violations (24h)" 
+                value={stats.violations} 
+                icon={ShieldAlert} 
+                color="red"    
+                trend={12} 
+                sub="VS YESTERDAY" 
+                loading={loading}
+                unit="incidents"
+                description="Total traffic and safety violations recorded in the last 24 hours"
+              />
+              <HackStatCard 
+                title="Disaster Events"  
+                value={stats.disasters}  
+                icon={Waves}       
+                color="yellow" 
+                sub="ACTIVE INCIDENTS" 
+                loading={loading}
+                unit="active"
+                description="Ongoing environmental or infrastructure emergencies"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Sensor Grid */}
       <div>
@@ -466,10 +475,17 @@ setStats(res.data);
       </div>
 
       {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* Charts */}
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-[600px]">
+        {loading ? (
+          <div className="lg:col-span-3 bg-slate-900 rounded-lg border border-slate-800 p-6">
+            <table className="w-full">
+              <tbody className="divide-y divide-slate-800"><SkeletonTable rows={6} /></tbody>
+            </table>
+          </div>
+        ) : (
+          <>
+            {/* Charts */}
+            <div className="lg:col-span-2 space-y-4">
           <Panel title="Accident Probability Forecast" tag="24H ROLLING — LIVE">
             <div className="p-5">
               <div className="h-56">
@@ -559,6 +575,7 @@ setStats(res.data);
             </button>
           </div>
         </div>
+        </>)}
       </div>
     </div>
   );
