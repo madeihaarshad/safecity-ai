@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import SectionHeader from '../components/SectionHeader';
+import Breadcrumb from '../components/Breadcrumb';
 import {
   CloudRain, AlertCircle, Wind, Thermometer, Droplets,
   Eye, Activity, Globe, RefreshCw, CheckCircle, Wifi
@@ -90,6 +91,7 @@ const severeEqs = safeEarthquakes.filter(eq => eq.magnitude >= 5.0);
 
   return (
     <div className="p-8 space-y-6">
+      <Breadcrumb crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Disaster Hub' }]} />
       <div className="flex items-center justify-between">
         <SectionHeader title="Disaster Hub" subtitle="Live data from OpenWeatherMap & USGS Earthquake Hazards" />
         <button
