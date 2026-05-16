@@ -138,7 +138,7 @@ const NotificationBell = () => {
         ref={bellRef}
         onClick={handleBellClick}
         className={`relative p-2 rounded-lg transition-colors text-[var(--subtle)] hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-          theme === 'dark' ? 'hover:bg-[var(--card)]' : 'hover:bg-gray-100'
+          theme === 'dark' ? 'hover:bg-[var(--card)]' : 'hover:bg-[var(--muted)]/20'
         }`}
         title="Notifications"
       >
@@ -157,7 +157,7 @@ const NotificationBell = () => {
           className={`absolute top-12 right-0 w-80 border rounded-lg shadow-lg z-50 transition-all duration-200 ${
             theme === 'dark'
               ? 'bg-[var(--surface)] border-[var(--border)] shadow-black/40'
-              : 'bg-white border-gray-200 shadow-gray-200/50'
+              : 'bg-[var(--surface)] border-[var(--border)] shadow-black/10'
           }`}
         >
           {/* Header with Clear All button */}
@@ -188,7 +188,7 @@ const NotificationBell = () => {
                   className={`px-4 py-3 border-b last:border-b-0 transition-colors ${
                     theme === 'dark'
                       ? 'border-[var(--border)] hover:bg-[var(--muted)]/30'
-                      : 'border-[var(--border)] hover:bg-[var(--muted)]/20'
+                      : 'border-[var(--border)] hover:bg-[var(--muted)]/15'
                   }`}
                 >
                   <div className="flex gap-3">
@@ -245,7 +245,7 @@ const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
     <header className={`h-14 backdrop-blur-md border-b flex items-center justify-between px-6 z-10 shrink-0 transition-colors ${
       theme === 'dark'
         ? 'bg-[var(--bg)]/80 border-[var(--border)]'
-        : 'bg-white/80 border-gray-200'
+        : 'bg-[var(--surface)]/90 border-[var(--border)]'
     }`}>
       <div className="flex items-center gap-4">
         {isMobile && (
@@ -259,7 +259,7 @@ const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
         )}
         <h2 className={`font-bold text-lg text-[var(--text)]`}>{getPageTitle(location.pathname)}</h2>
         <div className={`text-sm font-mono px-2 py-1 rounded hidden sm:block ${
-          theme === 'dark' ? 'text-[var(--subtle)] bg-[var(--card)]/50' : 'text-slate-500 bg-gray-100'
+          theme === 'dark' ? 'text-[var(--subtle)] bg-[var(--card)]/50' : 'text-[var(--subtle)] bg-[var(--muted)]/20'
         }`}>
           {formatTime(time)}
         </div>
@@ -278,13 +278,13 @@ const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
         <button
           onClick={toggle}
           className={`relative flex items-center w-14 h-7 rounded-full p-1 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-            theme === 'dark' ? 'bg-[var(--card)]' : 'bg-gray-200'
+            theme === 'dark' ? 'bg-[var(--card)]' : 'bg-[var(--border)]'
           }`}
           aria-label="Toggle theme"
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
           <div className={`flex items-center justify-center w-5 h-5 rounded-full shadow-md transform transition-transform duration-300 ${
-            theme === 'dark' ? 'translate-x-7 bg-[var(--accent)]' : 'translate-x-0 bg-white'
+            theme === 'dark' ? 'translate-x-7 bg-[var(--accent)]' : 'translate-x-0 bg-[var(--surface)]'
           }`}>
             {theme === 'dark' ? <Sun size={12} className="text-[var(--bg)]" /> : <Moon size={12} className="text-[var(--bg)]" />}
           </div>
@@ -292,7 +292,7 @@ const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
         <NotificationBell />
         <div className={`flex items-center gap-3 border-l pl-4 border-[var(--border)]`}>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-[var(--accent)] border ${
-            theme === 'dark' ? 'bg-[var(--surface)] border-[var(--border)]' : 'bg-gray-100 border-gray-200'
+            theme === 'dark' ? 'bg-[var(--surface)] border-[var(--border)]' : 'bg-[var(--muted)]/30 border-[var(--border)]'
           }`}>
             <Users size={16} />
           </div>

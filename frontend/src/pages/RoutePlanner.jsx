@@ -399,7 +399,7 @@ const RoutePlanner = () => {
             onClick={getRoute}
             disabled={!params.start || !params.end || loading}
             className={`w-full py-3 font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${params.start && params.end && !loading
-                ? 'bg-[var(--accent)] text-navy hover:bg-[var(--accent-light)] accent-glow'
+                ? 'bg-[var(--accent)] text-[var(--bg)] hover:opacity-90 accent-glow'
                 : 'bg-[var(--card)] text-[var(--subtle)] cursor-not-allowed opacity-50'
               }`}
           >

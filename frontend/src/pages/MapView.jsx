@@ -140,12 +140,12 @@ const Legend = ({ sensors }) => {
       position: "absolute", bottom: 32, left: 16, zIndex: 1000,
       background: isDark ? "rgba(10, 22, 40, 0.95)" : "rgba(255, 255, 255, 0.95)", 
       backdropFilter: "blur(12px)",
-      border: isDark ? "1px solid rgba(0, 212, 200, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)", 
+      border: isDark ? "1px solid rgba(22, 163, 74, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)", 
       borderRadius: 12,
       padding: "14px 18px", color: isDark ? "#f1f5f9" : "#0f172a", 
       fontFamily: "'JetBrains Mono',monospace",
       fontSize: 12, minWidth: 190,
-      boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.5), 0 0 15px rgba(0, 212, 200, 0.1)" : "0 8px 32px rgba(0,0,0,0.1)",
+      boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.5), 0 0 15px rgba(22, 163, 74, 0.1)" : "0 8px 32px rgba(0,0,0,0.1)",
     }}>
       <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.1em", color: isDark ? "#94a3b8" : "#64748b", marginBottom: 10 }}>
         LIVE RISK ZONES
@@ -201,11 +201,11 @@ const StatsBar = ({ sensors }) => {
         <div key={s.label} style={{
           background: isDark ? "rgba(10, 22, 40, 0.95)" : "rgba(255, 255, 255, 0.95)",
           backdropFilter: "blur(12px)",
-          border: isDark ? "1px solid rgba(0, 212, 200, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)",
+          border: isDark ? "1px solid rgba(22, 163, 74, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)",
           borderRadius: 10,
           padding: "8px 14px", textAlign: "center",
           fontFamily: "'JetBrains Mono',monospace",
-          boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.4), 0 0 10px rgba(0, 212, 200, 0.05)" : "0 4px 20px rgba(0,0,0,0.1)",
+          boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.4), 0 0 10px rgba(22, 163, 74, 0.05)" : "0 4px 20px rgba(0,0,0,0.1)",
         }}>
           <div style={{ color: s.color, fontWeight: 700, fontSize: 16 }}>{s.value}</div>
           <div style={{ color: isDark ? "#64748b" : "#94a3b8", fontSize: 9, letterSpacing: "0.08em", marginTop: 2 }}>
@@ -273,15 +273,15 @@ const MapView = () => {
         ].map(({ label, state, set }) => (
           <button key={label} onClick={() => set(!state)} style={{
             background: state 
-              ? (theme === 'dark' ? "rgba(0, 212, 200, 0.2)" : "rgba(0, 212, 200, 0.1)") 
+              ? (theme === 'dark' ? "rgba(22, 163, 74, 0.2)" : "rgba(22, 163, 74, 0.1)") 
               : (theme === 'dark' ? "rgba(10, 22, 40, 0.85)" : "rgba(255, 255, 255, 0.85)"),
             backdropFilter: "blur(10px)",
-            border: `1px solid ${state ? "#4ADE80" : (theme === 'dark' ? "rgba(74, 222, 128, 0.15)" : "rgba(22, 163, 74, 0.15)")}`,
+            border: `1px solid ${state ? "#16A34A" : (theme === 'dark' ? "rgba(74,222,128,0.15)" : "rgba(22,163,74,0.15)")}`,
             borderRadius: 8, padding: "6px 14px",
-            color: state ? "#4ADE80" : (theme === 'dark' ? "#7FAF88" : "#16A34A"),
+            color: state ? (theme === 'dark' ? "#4ADE80" : "#16A34A") : (theme === 'dark' ? "#7FAF88" : "#16A34A"),
             fontFamily: "'JetBrains Mono',monospace", fontSize: 11,
             cursor: "pointer", fontWeight: 700, letterSpacing: "0.05em",
-            boxShadow: state ? "0 0 10px rgba(0, 212, 200, 0.2)" : "none",
+            boxShadow: state ? "0 0 10px rgba(22, 163, 74, 0.2)" : "none",
             transition: "all 0.2s ease",
           }}>
             {state ? "✓ " : ""}{label.toUpperCase()}

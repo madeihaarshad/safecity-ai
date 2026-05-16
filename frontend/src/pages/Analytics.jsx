@@ -4,7 +4,8 @@ import SectionHeader from '../components/SectionHeader';
 import Breadcrumb from '../components/Breadcrumb';
 import {
   Brain, Sparkles, RefreshCcw, Camera, Upload,
-  Video, VideoOff, Aperture, AlertCircle, Zap, MapPin, Navigation, LocateFixed, X
+  Video, VideoOff, Aperture, AlertCircle, Zap, MapPin, Navigation, LocateFixed, X,
+  Activity, Car, PersonStanding, AlertTriangle
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -16,9 +17,9 @@ const RiskBadge = ({ level }) => {
 
 const CongestionBadge = ({ level }) => {
   const map = {
-    High:     'bg-red-500/20 text-red-400',
+    High: 'bg-red-500/20 text-red-400',
     Moderate: 'bg-yellow-500/20 text-yellow-400',
-    Low:      'bg-green-500/20 text-green-400',
+    Low: 'bg-green-500/20 text-green-400',
   };
   return (
     <span className={`px-2 py-0.5 rounded text-xs font-semibold ${map[level] ?? 'bg-[var(--card)] text-[var(--subtle)]'}`}>
@@ -33,7 +34,7 @@ const RiskGauge = ({ score }) => {
   const angle = (normalizedScore / 100) * 180 - 90;
   const color = normalizedScore < 40 ? '#22c55e' : normalizedScore < 70 ? '#eab308' : '#ef4444';
   const cx = 120, cy = 140, r = 80;
-  
+
   const startAngle = -90;
   const endAngle = startAngle + (normalizedScore / 100) * 180;
   const startRad = (startAngle * Math.PI) / 180;
@@ -69,45 +70,44 @@ const Analytics = () => {
   const { theme } = useTheme();
   // ── Risk predictor ──────────────────────────────────────
   const [loadingRisk, setLoadingRisk] = useState(false);
-  const [prediction, setPrediction]   = useState(null);
+  const [prediction, setPrediction] = useState(null);
   const [formData, setFormData] = useState({
     hour: 12,
     weather: 'Clear',
-    congestion: 'Light',
+    congestion: 'Free Flow',
     speed_avg: 60,
-    incident_count: 0
+    incident_count: 0,
   });
 
-  // ── Image detection ─────────────────────────────────────
-  const [selectedImage, setSelectedImage]   = useState(null);
-  const [imageBase64, setImageBase64]       = useState(null);
-  const [detecting, setDetecting]           = useState(false);
-  const [detection, setDetection]           = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [detecting, setDetecting] = useState(false);
+  const [detection, setDetection] = useState(null);
   const [annotatedFrame, setAnnotatedFrame] = useState(null);
-  const fileInputRef                        = useRef(null);
+  const fileInputRef = useRef(null);
 
   // ── Webcam ──────────────────────────────────────────────
-  const [camMode, setCamMode]         = useState(false);   // webcam panel open
-  const [camReady, setCamReady]       = useState(false);   // stream active
-  const [camError, setCamError]       = useState(null);
-  const videoRef                      = useRef(null);
-  const streamRef                     = useRef(null);
-  const canvasRef                     = useRef(null);
+  const [camMode, setCamMode] = useState(false);   // webcam panel open
+  const [camReady, setCamReady] = useState(false);   // stream active
+  const [camError, setCamError] = useState(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const canvasRef = useRef(null);
 
   // ── Live camera stats polling ───────────────────────────
-  const [camStats, setCamStats]   = useState(null);
+  const [camStats, setCamStats] = useState(null);
   const [cameraLocation, setCameraLocation] = useState({
     lat: 33.6844, lng: 73.0479,
     address: 'Faisal Avenue, Islamabad, Pakistan'
   });
   const [showLocationModal, setShowLocationModal] = useState(false);
   const locationInputRef = useRef(null);
-  const pollRef                   = useRef(null);
+  const pollRef = useRef(null);
 
   // ── Health check + poll ─────────────────────────────────
   useEffect(() => {
     const pollCam = async () => {
-      try { const res = await fetchCameraStats(); setCamStats(res.data); } catch {}
+      try { const res = await fetchCameraStats(); setCamStats(res.data); } catch { }
     };
     pollCam();
     pollRef.current = setInterval(pollCam, 4000);
@@ -154,7 +154,7 @@ const Analytics = () => {
 
   const fetchCurrentLocation = () => {
     if (!navigator.geolocation) return;
-    
+
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const { latitude: lat, longitude: lng } = pos.coords;
       try {
@@ -174,9 +174,9 @@ const Analytics = () => {
 
   const captureFrame = () => {
     if (!videoRef.current || !canvasRef.current) return;
-    const video  = videoRef.current;
+    const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width  = video.videoWidth;
+    canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
 
@@ -204,7 +204,7 @@ const Analytics = () => {
     const reader = new FileReader();
     reader.onload = (ev) => setImageBase64(ev.target.result.split(',')[1]);
     reader.readAsDataURL(file);
-    
+
     // Attempt to get location
     fetchCurrentLocation();
   };
@@ -263,7 +263,7 @@ const Analytics = () => {
             </div>
             <h3 className={`text-lg font-bold text-[var(--text)]`}>Risk Prediction</h3>
           </div>
-          
+
           <form onSubmit={runPrediction} className="space-y-4">
             {/* Hour slider */}
             <div>
@@ -355,14 +355,14 @@ const Analytics = () => {
               <p className="italic">Configure parameters and click "Predict Risk" to start analysis</p>
             </div>
           )}
-          
+
           {loadingRisk && (
             <div className="flex flex-col items-center justify-center gap-4">
               <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-[var(--subtle)]">Processing parameters…</p>
             </div>
           )}
-          
+
           {prediction && !loadingRisk && (
             <div className="space-y-6">
               {/* Gauge */}
@@ -373,11 +373,10 @@ const Analytics = () => {
               {/* Risk level */}
               <div className="text-center">
                 <p className="text-[var(--subtle)] text-sm uppercase font-bold mb-2">Risk Level</p>
-                <p className={`text-3xl font-black ${
-                  prediction.level === 'Low' ? 'text-green-400' :
-                  prediction.level === 'Moderate' ? 'text-yellow-400' :
-                  prediction.level === 'High' ? 'text-orange-400' : 'text-red-500'
-                }`}>
+                <p className={`text-3xl font-black ${prediction.level === 'Low' ? 'text-green-400' :
+                    prediction.level === 'Moderate' ? 'text-yellow-400' :
+                      prediction.level === 'High' ? 'text-orange-400' : 'text-red-500'
+                  }`}>
                   {prediction.level}
                 </p>
               </div>
@@ -401,11 +400,11 @@ const Analytics = () => {
 
               {/* Recommendation */}
               {prediction.recommendation && (
-                <div className="bg-blue-500/10 border border-blue-500/40 rounded-lg p-4 flex gap-3">
-                  <AlertCircle size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-lg p-4 flex gap-3">
+                  <AlertCircle size={20} className="text-[var(--accent)] flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs uppercase font-bold text-blue-400 mb-1">Recommendation</p>
-                    <p className="text-sm text-blue-300">{prediction.recommendation}</p>
+                    <p className="text-xs uppercase font-bold text-[var(--accent)] mb-1">Recommendation</p>
+                    <p className="text-sm text-[var(--subtle)]">{prediction.recommendation}</p>
                   </div>
                 </div>
               )}
@@ -438,11 +437,10 @@ const Analytics = () => {
               </button>
               <button
                 onClick={camMode ? stopWebcam : startWebcam}
-                className={`flex items-center justify-center gap-2 py-3 border rounded-xl text-sm font-semibold transition-colors ${
-                  camMode
+                className={`flex items-center justify-center gap-2 py-3 border rounded-xl text-sm font-semibold transition-colors ${camMode
                     ? 'bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30'
                     : 'bg-[var(--accent)]/20 border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/30'
-                }`}
+                  }`}
               >
                 {camMode ? <><VideoOff size={18} /> Stop Camera</> : <><Video size={18} /> Live Camera</>}
               </button>
@@ -537,7 +535,7 @@ const Analytics = () => {
               <div className="space-y-4">
                 {/* Camera Location Pill */}
                 <div className="flex justify-between items-center">
-                  <div 
+                  <div
                     onClick={() => setShowLocationModal(true)}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-full border cursor-pointer transition-all hover:scale-105 active:scale-95 bg-[var(--card)] border-[var(--border)] text-[var(--subtle)]`}>
                     <MapPin size={12} className="text-[var(--accent)]" />
@@ -581,36 +579,36 @@ const Analytics = () => {
                       </div>
                     )}
 
-                      <div className={`rounded-lg p-4 space-y-4 bg-[var(--bg)] border border-[var(--border)]`}>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-[var(--subtle)]">Congestion Level</span>
-                          <CongestionBadge level={detection.congestion_level} />
-                        </div>
-                        
-                        {detection.violations?.length > 0 && (
-                          <div className={`space-y-1 pt-2 border-t border-[var(--border)]`}>
-                            <p className="text-xs text-[var(--subtle)] uppercase font-bold">Violations</p>
-                            {detection.violations.map((v, i) => <p key={i} className="text-xs text-red-400">⚠ {v}</p>)}
-                          </div>
-                        )}
-
-                        {detection.detections?.length > 0 && (
-                          <div className={`space-y-3 pt-2 border-t border-[var(--border)]`}>
-                            <p className="text-xs text-[var(--subtle)] uppercase font-bold">Detections ({detection.detections.length})</p>
-                            <div className="space-y-2">
-                              {detection.detections.map((d, i) => (
-                                <div key={i} className={`flex items-center justify-between p-2 rounded-lg border bg-[var(--surface)] border-[var(--border)]`}>
-                                  <div className="flex flex-col">
-                                    <span className={`text-xs font-bold text-[var(--text)]`}>{d.label}</span>
-                                    <span className="text-[10px] text-[var(--subtle)] truncate max-w-[200px]">{cameraLocation.address}</span>
-                                  </div>
-                                  <span className="text-[10px] font-mono font-bold text-[var(--accent)]">{(d.confidence * 100).toFixed(0)}% CONF</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                    <div className={`rounded-lg p-4 space-y-4 bg-[var(--bg)] border border-[var(--border)]`}>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-[var(--subtle)]">Congestion Level</span>
+                        <CongestionBadge level={detection.congestion_level} />
                       </div>
+
+                      {detection.violations?.length > 0 && (
+                        <div className={`space-y-1 pt-2 border-t border-[var(--border)]`}>
+                          <p className="text-xs text-[var(--subtle)] uppercase font-bold">Violations</p>
+                          {detection.violations.map((v, i) => <p key={i} className="text-xs text-red-400">⚠ {v}</p>)}
+                        </div>
+                      )}
+
+                      {detection.detections?.length > 0 && (
+                        <div className={`space-y-3 pt-2 border-t border-[var(--border)]`}>
+                          <p className="text-xs text-[var(--subtle)] uppercase font-bold">Detections ({detection.detections.length})</p>
+                          <div className="space-y-2">
+                            {detection.detections.map((d, i) => (
+                              <div key={i} className={`flex items-center justify-between p-2 rounded-lg border bg-[var(--surface)] border-[var(--border)]`}>
+                                <div className="flex flex-col">
+                                  <span className={`text-xs font-bold text-[var(--text)]`}>{d.label}</span>
+                                  <span className="text-[10px] text-[var(--subtle)] truncate max-w-[200px]">{cameraLocation.address}</span>
+                                </div>
+                                <span className="text-[10px] font-mono font-bold text-[var(--accent)]">{(d.confidence * 100).toFixed(0)}% CONF</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -659,10 +657,9 @@ const Analytics = () => {
               <div className="flex items-center gap-3">
                 <div className={`w-48 h-2 rounded-full overflow-hidden bg-[var(--surface)]`}>
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      camStats.scene_risk_score > 0.7 ? 'bg-red-500' :
-                      camStats.scene_risk_score > 0.4 ? 'bg-yellow-500' : 'bg-green-500'
-                    }`}
+                    className={`h-full rounded-full transition-all duration-500 ${camStats.scene_risk_score > 0.7 ? 'bg-red-500' :
+                        camStats.scene_risk_score > 0.4 ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}
                     style={{ width: `${camStats.scene_risk_score * 100}%` }}
                   />
                 </div>
