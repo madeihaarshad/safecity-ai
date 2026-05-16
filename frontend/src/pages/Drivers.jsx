@@ -66,14 +66,14 @@ const Drivers = () => {
     return () => clearInterval(timer);
   }, [lastUpdated]);
 
-  const filteredDrivers = React.useMemo(() => {
-    if (!searchQuery.trim()) return drivers;
-    const query = searchQuery.toLowerCase().trim();
-    return drivers.filter(d =>
-      d.name.toLowerCase().includes(query) ||
-      d.licenseId.toLowerCase().includes(query)
-    );
-  }, [drivers, searchQuery]);
+ const filteredDrivers = React.useMemo(() => {
+  if (!searchQuery.trim()) return drivers;
+  const query = searchQuery.toLowerCase().trim();
+  return drivers.filter(d =>
+    d.name?.toLowerCase().includes(query) ||
+    d.licenseNumber?.toLowerCase().includes(query)
+  );
+}, [drivers, searchQuery]);
 
   useEffect(() => {
     if (searchQuery.trim()) setShowFilterBanner(true);
@@ -224,7 +224,7 @@ const Drivers = () => {
         </div>
       )}
 
-      {/* Drivers table */}
+           {/* Drivers table */}
       <div className="bg-[var(--surface)] rounded-lg border border-[var(--border)] overflow-hidden min-h-[400px]">
         <table className="w-full text-left">
           <thead className={`border-b border-[var(--border)] bg-[var(--bg)]`}>
@@ -264,34 +264,25 @@ const Drivers = () => {
             ) : (
               filteredDrivers.map((driver) => (
                 <tr key={driver._id} className="cursor-pointer hover:bg-[var(--accent)]/5 transition-colors">
-                  {/* Driver Name */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[var(--accent)]/20 flex items-center justify-center text-xs font-bold text-[var(--accent)]">
-                        {driver.name.charAt(0).toUpperCase()}
+                        {driver.name?.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-medium text-[var(--text)]">{driver.name}</span>
                     </div>
                   </td>
-
-                  {/* License ID */}
                   <td className="px-6 py-4">
                     <span className="font-mono text-sm text-[var(--subtle)]">
                       {driver.licenseNumber}
                     </span>
                   </td>
-
-                  {/* Safety Score */}
                   <td className="px-6 py-4">
                     <ScoreProgressBar score={driver.safetyScore} />
                   </td>
-
-                  {/* Risk Level */}
                   <td className="px-6 py-4">
                     <RiskBadge score={driver.safetyScore} />
                   </td>
-
-                  {/* Violations */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm font-bold text-[var(--text)]">
@@ -306,8 +297,6 @@ const Drivers = () => {
                       </div>
                     </div>
                   </td>
-
-                  {/* Action */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <button className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all text-sm font-medium bg-[var(--card)] text-[var(--subtle)] hover:bg-[var(--border)] hover:text-[var(--text)]`}>
@@ -318,7 +307,7 @@ const Drivers = () => {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (window.confirm("Delete this driver? This cannot be undone.")) {
-                            // Empty block
+                            // Add delete logic here
                           }
                         }}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-600 transition-colors text-sm font-medium border border-transparent hover:border-red-500/30"
@@ -334,7 +323,6 @@ const Drivers = () => {
           </tbody>
         </table>
       </div>
-      )}
     </div>
   );
 };
