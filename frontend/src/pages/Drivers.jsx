@@ -10,13 +10,13 @@ import { User, ShieldCheck, AlertCircle, Eye, Trash2, X, Search, WifiOff } from 
 const RiskBadge = ({ score }) => {
   let color, label;
   if (score >= 80) {
-    color = 'bg-green-500/20 text-green-400 border-green-500/30';
+    color = 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30';
     label = 'Safe Driver';
   } else if (score >= 50) {
-    color = 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+    color = 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30';
     label = 'Moderate Risk';
   } else {
-    color = 'bg-red-500/20 text-red-400 border-red-500/30';
+    color = 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30';
     label = 'High Risk';
   }
   return (
@@ -217,7 +217,7 @@ const Drivers = () => {
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors"
+            className="px-4 py-2 bg-[var(--warning)] hover:opacity-90 text-white font-semibold rounded-lg transition-colors"
           >
             Retry Connection
           </button>

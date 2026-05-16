@@ -36,7 +36,7 @@ class ErrorBoundary extends React.Component {
               </div>
             </div>
             
-            <h2 className="text-xl font-bold text-white mb-2">
+            <h2 className="text-xl font-bold text-[var(--text)] mb-2">
               Something went wrong in this section
             </h2>
             

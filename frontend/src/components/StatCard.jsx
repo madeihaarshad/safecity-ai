@@ -35,7 +35,7 @@ const StatCard = ({ title, value, icon: Icon, color, trend, unit, description, l
   }, [showPopover]);
 
   return (
-    <div className={`bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)] border-l-4 ${colorClasses[color]?.split(' ')[2] || 'border-slate-500'} relative accent-glow transition-all hover:scale-[1.02]`}>
+    <div className={`bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)] border-l-4 ${colorClasses[color]?.split(' ')[2] || 'border-[var(--subtle)]'} relative accent-glow transition-all hover:scale-[1.02]`}>
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center gap-2">
           <div className={`p-2 rounded-lg ${colorClasses[color]?.split(' ').slice(0, 2).join(' ')}`}>

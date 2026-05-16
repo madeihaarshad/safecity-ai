@@ -94,7 +94,7 @@ const HackTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className={`border rounded px-3 py-2 shadow-lg ${
-      theme === 'dark' ? 'bg-[var(--surface)] border-[var(--accent)]/30' : 'bg-white border-[var(--accent)]/50 shadow-sky-500/10'
+      theme === 'dark' ? 'bg-[var(--surface)] border-[var(--accent)]/30' : 'bg-[var(--surface)] border-[var(--accent)]/40 shadow-[var(--accent)]/5'
     }`}>
       <p className="text-[9px] font-mono text-[var(--accent)] tracking-widest uppercase mb-1">{label}</p>
       <p className={`text-sm font-bold font-mono text-[var(--text)]`}>{payload[0].value}%</p>
@@ -141,7 +141,7 @@ const HackStatCard = ({ title, value, icon: Icon, color, trend, sub, unit, descr
 
   return (
     <div className={`relative rounded-lg border ${c.border} border-l-4 ${c.borderLeft} overflow-visible group hover:brightness-110 transition-all duration-300 accent-glow ${
-      theme === 'dark' ? 'bg-[var(--surface)]' : 'bg-white shadow-sm'
+      theme === 'dark' ? 'bg-[var(--surface)]' : 'bg-[var(--surface)] shadow-sm'
     }`}>
       <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${c.topBar} via-transparent to-transparent`} />
 
@@ -193,10 +193,10 @@ const Panel = ({ title, tag, children }) => {
   const { theme } = useTheme();
   return (
     <div className={`rounded-lg border overflow-hidden ${
-      theme === 'dark' ? 'bg-[var(--surface)] border-[var(--border)]' : 'bg-white border-gray-100 shadow-sm'
+      theme === 'dark' ? 'bg-[var(--surface)] border-[var(--border)]' : 'bg-[var(--surface)] border-[var(--border)] shadow-sm'
     }`}>
       <div className={`flex items-center justify-between px-5 py-3 border-b ${
-        theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-gray-50 bg-gray-50/50'
+        theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-[var(--border)]/50 bg-[var(--muted)]/10'
       }`}>
         <h3 className={`text-[10px] font-mono font-bold tracking-[0.2em] uppercase text-[var(--text)]`}>{title}</h3>
         {tag && <span className="text-[8px] font-mono text-[var(--subtle)] tracking-widest uppercase">{tag}</span>}
@@ -448,7 +448,7 @@ const Dashboard = () => {
           </p>
           <button
             onClick={fetchData}
-            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors"
+            className="px-4 py-2 bg-[var(--warning)] hover:opacity-90 text-white font-semibold rounded-lg transition-colors"
           >
             Retry Connection
           </button>
@@ -585,7 +585,7 @@ const Dashboard = () => {
 
               {/* Feed header */}
               <div className={`px-5 py-3 border-b flex items-center justify-between ${
-                theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-gray-50 bg-gray-50/50'
+                theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-[var(--border)]/50 bg-[var(--muted)]/10'
               }`}>
                 <div className="flex items-center gap-2">
                   <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${hasCritical
@@ -616,7 +616,7 @@ const Dashboard = () => {
 
               {/* Footer */}
               <div className={`px-4 py-3 border-t flex items-center justify-between ${
-                theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-gray-50 bg-gray-50/50'
+                theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-[var(--border)]/50 bg-[var(--muted)]/10'
               }`}>
                 <span className="text-[8px] font-mono text-[var(--subtle)] tracking-widest uppercase">
                   {alerts.length} events in session
