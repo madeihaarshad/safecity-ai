@@ -4,7 +4,7 @@ const Loader = ({ fullPage = false }) => {
   const content = (
     <div className="flex flex-col items-center justify-center gap-3">
       <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-slate-400 text-sm animate-pulse">Syncing with SafeCity AI...</p>
+      <p className="text-[var(--subtle)] text-sm animate-pulse">Syncing with SafeCity AI...</p>
     </div>
   );
 

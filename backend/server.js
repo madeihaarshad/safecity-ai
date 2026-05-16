@@ -19,11 +19,21 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(cors());
 app.use(express.json());
 
+// ================= STARTUP TRACKING =================
+const serverStartTime = Date.now();
+
 // ================= DB =================
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB Connected");
-    initSensors();
+  .then(async () => {
+    // Health check: Verify API key
+    if (!process.env.OPENWEATHER_API_KEY) {
+      console.warn("⚠️  WARNING: OPENWEATHER_API_KEY is missing from .env");
+    }
+
+    // Initialize sensors and log startup summary
+    await initSensors();
+    const sensorCount = await Sensor.countDocuments();
+    console.log(`✅ DB Connected | Sensors: ${sensorCount} | Models loaded`);
   })
   .catch(err => console.log("DB Error:", err));
 
@@ -95,18 +105,63 @@ async function initSensors() {
   }, 5000);
 }
 
-// ================= 📊 STATS API (FIXED) =================
+// ================= 📊 STATS API (COMPREHENSIVE) =================
 app.get("/api/stats", async (req, res) => {
   try {
-    const violations = await Violation.find();
+    // Run all DB queries in parallel
+    const [violations, alerts, sensors, drivers] = await Promise.all([
+      Violation.find(),
+      Alert.find(),
+      Sensor.find(),
+      Driver.find()
+    ]);
 
-    const stats = {
-      low: violations.filter(v => v.severity === "low").length,
+    // Violation stats
+    const violationStats = {
+      total: violations.length,
+      high: violations.filter(v => v.severity === "high").length,
       medium: violations.filter(v => v.severity === "medium").length,
-      high: violations.filter(v => v.severity === "high").length
+      low: violations.filter(v => v.severity === "low").length
     };
 
-    res.json(stats);
+    // Alert stats
+    const alertStats = {
+      total: alerts.length,
+      unresolved: alerts.filter(a => !a.resolved).length,
+      critical: alerts.filter(a => a.priority === "Critical").length
+    };
+
+    // Sensor stats
+    const sensorStats = {
+      total: sensors.length,
+      online: sensors.filter(s => s.status === "Online").length,
+      offline: sensors.filter(s => s.status === "Offline").length
+    };
+
+    // Driver stats - highRisk = drivers with >2 high-severity violations
+    const driverStats = {
+      total: drivers.length,
+      highRisk: 0
+    };
+
+    // Count high-risk drivers
+    for (const driver of drivers) {
+      const driverViolations = violations.filter(
+        v => v.driverId && v.driverId.toString() === driver._id.toString()
+      );
+      const highViolations = driverViolations.filter(v => v.severity === "high").length;
+      if (highViolations > 2) {
+        driverStats.highRisk++;
+      }
+    }
+
+    res.json({
+      violations: violationStats,
+      alerts: alertStats,
+      sensors: sensorStats,
+      drivers: driverStats,
+      lastUpdated: new Date().toISOString()
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -152,6 +207,70 @@ app.get("/api/sensors", async (req, res) => {
   res.json(await Sensor.find());
 });
 
+// GET: Traffic congestion analysis
+app.get("/api/congestion", async (req, res) => {
+  try {
+    const sensors = await Sensor.find();
+
+    // Process each sensor for congestion level
+    const congestionData = sensors.map(sensor => {
+      const speed = sensor.lastReading?.value ?? null;
+
+      let congestion = "No Data";
+      if (speed !== null) {
+        if (speed < 20) {
+          congestion = "Severe Congestion";
+        } else if (speed < 50) {
+          congestion = "Moderate Congestion";
+        } else if (speed <= 80) {
+          congestion = "Light Traffic";
+        } else {
+          congestion = "Free Flow";
+        }
+      }
+
+      return {
+        sensorId: sensor.sensorId,
+        location: sensor.location,
+        lat: sensor.lastLocation?.lat || sensor.lat,
+        lng: sensor.lastLocation?.lng || sensor.lng,
+        speed: speed,
+        congestion,
+        riskTier: sensor.lastReading?.riskTier || "unknown"
+      };
+    });
+
+    // Calculate citywide summary
+    const readingsWithData = congestionData.filter(s => s.speed !== null);
+    const avgSpeed = readingsWithData.length > 0
+      ? Math.round(readingsWithData.reduce((sum, s) => sum + s.speed, 0) / readingsWithData.length)
+      : 0;
+
+    // Determine dominant condition (most common congestion level)
+    const conditionCounts = {};
+    readingsWithData.forEach(s => {
+      conditionCounts[s.congestion] = (conditionCounts[s.congestion] || 0) + 1;
+    });
+
+    const dominantCondition = Object.keys(conditionCounts).length > 0
+      ? Object.keys(conditionCounts).reduce((a, b) =>
+        conditionCounts[a] > conditionCounts[b] ? a : b
+      )
+      : "No Data";
+
+    res.json({
+      sensors: congestionData,
+      summary: {
+        avgSpeed,
+        dominantCondition,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/alerts", async (req, res) => {
   res.json(await Alert.find().sort({ createdAt: -1 }));
 });
@@ -160,8 +279,121 @@ app.get("/api/drivers", async (req, res) => {
   res.json(await Driver.find());
 });
 
+// GET: Driver safety score with violation breakdown
+app.get("/api/drivers/:id/score", async (req, res) => {
+  try {
+    const driver = await Driver.findById(req.params.id);
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+
+    // Fetch all violations for this driver
+    const violations = await Violation.find({ driverId: driver._id.toString() });
+
+    // Calculate breakdown by severity
+    const breakdown = {
+      high: violations.filter(v => v.severity === "high").length,
+      medium: violations.filter(v => v.severity === "medium").length,
+      low: violations.filter(v => v.severity === "low").length
+    };
+
+    // Calculate safety score: 100 - (10*high + 5*medium + 2*low)
+    let calculatedScore = 100;
+    calculatedScore -= breakdown.high * 10;
+    calculatedScore -= breakdown.medium * 5;
+    calculatedScore -= breakdown.low * 2;
+
+    // Ensure score stays within 0-100 range
+    calculatedScore = Math.max(0, Math.min(100, calculatedScore));
+
+    res.json({
+      driverId: driver._id,
+      name: driver.name,
+      safetyScore: calculatedScore,
+      violationCount: violations.length,
+      breakdown
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/violations", async (req, res) => {
   res.json(await Violation.find().sort({ createdAt: -1 }));
+});
+
+// POST: Create a new violation
+app.post("/api/violations", async (req, res) => {
+  try {
+    const { driverId, location, speed, speedLimit, type } = req.body;
+
+    // Auto-calculate severity based on speed difference
+    let severity = "low";
+    const speedDiff = speed - speedLimit;
+    if (speedDiff > 50) {
+      severity = "high";
+    } else if (speedDiff > 20) {
+      severity = "medium";
+    }
+
+    const violation = await Violation.create({
+      driverId,
+      location,
+      speed,
+      speedLimit,
+      type,
+      severity,
+      timestamp: new Date()
+    });
+
+    // Emit socket event to all connected clients
+    io.emit("newViolation", violation);
+
+    res.status(201).json(violation);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// DELETE: Remove violation by ID
+app.delete("/api/violations/:id", async (req, res) => {
+  try {
+    await Violation.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// GET: Violation statistics by severity
+app.get("/api/violations/stats", async (req, res) => {
+  try {
+    const violations = await Violation.find();
+
+    const stats = {
+      high: violations.filter(v => v.severity === "high").length,
+      medium: violations.filter(v => v.severity === "medium").length,
+      low: violations.filter(v => v.severity === "low").length,
+      total: violations.length
+    };
+
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ================= HEALTH CHECK =================
+app.get("/health", (req, res) => {
+  const uptime = Date.now() - serverStartTime;
+  const dbConnected = mongoose.connection.readyState === 1;
+
+  res.status(dbConnected ? 200 : 503).json({
+    status: dbConnected ? "healthy" : "unhealthy",
+    db: dbConnected ? "connected" : "disconnected",
+    uptime: Math.floor(uptime / 1000), // in seconds
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ================= WEATHER =================
@@ -213,7 +445,7 @@ app.get("/api/earthquakes", async (req, res) => {
       depth_km: f.geometry?.coordinates?.[2] ?? 0,
       severity:
         f.properties.mag >= 5 ? "Severe" :
-        f.properties.mag >= 3 ? "Moderate" : "Low"
+          f.properties.mag >= 3 ? "Moderate" : "Low"
     }));
 
     res.json(eqs);

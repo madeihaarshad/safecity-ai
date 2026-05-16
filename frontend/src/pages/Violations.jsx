@@ -7,6 +7,7 @@ import {
   Search, Filter, ExternalLink, Camera, Upload,
   RefreshCcw, ShieldAlert, Video, VideoOff, Aperture, Trash2, X, WifiOff
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 const SeverityBadge = ({ level }) => {
   const map = {
@@ -50,6 +51,7 @@ const getDateRange = (range) => {
 };
 
 const Violations = () => {
+  const { theme } = useTheme();
   const [tab, setTab] = useState('db');
 
   // ── DB violations ────────────────────────────────────────
@@ -151,7 +153,7 @@ const Violations = () => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(v =>
-        (v.location && v.location.toLowerCase().includes(query)) ||
+        (v.location?.name?.toLowerCase().includes(query) || (typeof v.location === 'string' && v.location.toLowerCase().includes(query))) ||
         (v.driverId && v.driverId.toLowerCase().includes(query))
       );
     }
@@ -253,15 +255,15 @@ const Violations = () => {
           title="Traffic Violations"
           subtitle="Database records · YOLO AI violation scanner"
         />
-        <span className="text-[9px] font-mono text-slate-600">Last updated {secondsAgo} seconds ago</span>
+        <span className="text-[9px] font-mono text-[var(--subtle)]">Last updated {secondsAgo} seconds ago</span>
       </div>
 
       {showFilterBanner && (
-        <div className="flex items-center justify-between bg-sky-950/40 border border-sky-500/30 text-sky-400 text-xs px-4 py-3 rounded-lg mb-4">
+        <div className="flex items-center justify-between bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-[var(--accent)] text-xs px-4 py-3 rounded-lg mb-4">
           <span>Showing {filteredViolations.length} results for '{activeFilterStr}'</span>
           <button 
             onClick={() => setShowFilterBanner(false)} 
-            className="hover:text-white transition-colors"
+            className="hover:text-[var(--text)] transition-colors"
             aria-label="Close filter banner"
             title="Close filter banner"
           >
@@ -274,7 +276,7 @@ const Violations = () => {
       <div className="flex gap-2 mb-6">
         <button 
           onClick={() => setTab('db')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'db' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'db' ? 'bg-[var(--accent)] text-[var(--bg)] shadow-lg accent-glow' : 'bg-[var(--card)] text-[var(--subtle)] hover:text-[var(--text)] hover:bg-[var(--border)]'}`}
           aria-label="View database records"
           title="View database records"
         >
@@ -282,7 +284,7 @@ const Violations = () => {
         </button>
         <button 
           onClick={() => setTab('yolo')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'yolo' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'yolo' ? 'bg-[var(--accent)] text-[var(--bg)] shadow-lg accent-glow' : 'bg-[var(--card)] text-[var(--subtle)] hover:text-[var(--text)] hover:bg-[var(--border)]'}`}
           aria-label="Open YOLO AI scanner"
           title="Open YOLO AI scanner"
         >
@@ -295,23 +297,23 @@ const Violations = () => {
         <div className="space-y-6">
 
           {/* Filter Bar */}
-          <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 space-y-4">
+          <div className={`rounded-lg border p-4 space-y-4 bg-[var(--surface)] border-[var(--border)] shadow-sm`}>
             <div className="flex items-center gap-2 mb-3">
-              <Filter size={16} className="text-slate-400" />
-              <span className="text-xs font-mono font-semibold tracking-widest uppercase text-slate-500">Filters</span>
+              <Filter size={16} className="text-[var(--subtle)]" />
+              <span className="text-xs font-mono font-semibold tracking-widest uppercase text-[var(--subtle)]">Filters</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Search */}
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--subtle)]" />
                 <input
                   type="text"
                   tabIndex={1}
                   placeholder="Search by location or driver ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none transition-colors"
+                  className={`w-full pl-10 pr-4 py-2 border rounded-lg text-sm placeholder-[var(--subtle)] focus:border-[var(--accent)] focus:outline-none transition-all bg-[var(--card)] border-[var(--border)] text-[var(--text)]`}
                 />
               </div>
 
@@ -320,7 +322,7 @@ const Violations = () => {
                 tabIndex={2}
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value)}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:border-sky-500 focus:outline-none transition-colors"
+                className={`px-4 py-2 border rounded-lg text-sm focus:border-[var(--accent)] focus:outline-none transition-all bg-[var(--card)] border-[var(--border)] text-[var(--text)]`}
               >
                 <option value="all">Severity: All</option>
                 <option value="low">Severity: Low</option>
@@ -333,7 +335,7 @@ const Violations = () => {
                 tabIndex={3}
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:border-sky-500 focus:outline-none transition-colors"
+                className={`px-4 py-2 border rounded-lg text-sm focus:border-[var(--accent)] focus:outline-none transition-all bg-[var(--card)] border-[var(--border)] text-[var(--text)]`}
               >
                 <option value="all">Date: All Time</option>
                 <option value="today">Date: Today</option>
@@ -345,20 +347,20 @@ const Violations = () => {
 
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 text-center">
-              <p className="text-2xl font-bold text-white">{stats.total}</p>
-              <p className="text-xs font-mono text-slate-500 tracking-widest uppercase mt-1">Total</p>
+            <div className={`rounded-lg border p-4 text-center bg-[var(--surface)] border-[var(--border)] shadow-sm`}>
+              <p className={`text-2xl font-bold text-[var(--text)]`}>{stats.total}</p>
+              <p className="text-xs font-mono text-[var(--subtle)] tracking-widest uppercase mt-1">Total</p>
             </div>
-            <div className="bg-slate-900 rounded-lg border border-red-500/20 p-4 text-center">
-              <p className="text-2xl font-bold text-red-400">{stats.high}</p>
+            <div className={`rounded-lg border p-4 text-center bg-[var(--surface)] border-red-500/20 shadow-sm`}>
+              <p className="text-2xl font-bold text-red-500">{stats.high}</p>
               <p className="text-xs font-mono text-red-500/70 tracking-widest uppercase mt-1">High</p>
             </div>
-            <div className="bg-slate-900 rounded-lg border border-yellow-500/20 p-4 text-center">
-              <p className="text-2xl font-bold text-yellow-400">{stats.medium}</p>
+            <div className={`rounded-lg border p-4 text-center bg-[var(--surface)] border-yellow-500/20 shadow-sm`}>
+              <p className="text-2xl font-bold text-yellow-500">{stats.medium}</p>
               <p className="text-xs font-mono text-yellow-500/70 tracking-widest uppercase mt-1">Medium</p>
             </div>
-            <div className="bg-slate-900 rounded-lg border border-green-500/20 p-4 text-center">
-              <p className="text-2xl font-bold text-green-400">{stats.low}</p>
+            <div className={`rounded-lg border p-4 text-center bg-[var(--surface)] border-green-500/20 shadow-sm`}>
+              <p className="text-2xl font-bold text-green-500">{stats.low}</p>
               <p className="text-xs font-mono text-green-500/70 tracking-widest uppercase mt-1">Low</p>
             </div>
           </div>
@@ -385,19 +387,19 @@ const Violations = () => {
           )}
 
           {/* Violations Table */}
-          <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden min-h-[400px]">
+          <div className={`rounded-lg border overflow-hidden min-h-[400px] bg-[var(--surface)] border-[var(--border)] shadow-sm`}>
             <table className="w-full text-left">
-              <thead className="bg-slate-950 border-b border-slate-800">
+              <thead className={`border-b bg-[var(--bg)] border-[var(--border)]`}>
                 <tr>
-                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Driver ID</th>
-                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Location</th>
-                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Speed / Limit</th>
-                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Severity</th>
-                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Date</th>
-                  <th className="px-6 py-4 text-xs font-mono font-semibold text-slate-400 tracking-widest uppercase">Actions</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-[var(--subtle)] tracking-widest uppercase">Driver ID</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-[var(--subtle)] tracking-widest uppercase">Location</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-[var(--subtle)] tracking-widest uppercase">Speed / Limit</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-[var(--subtle)] tracking-widest uppercase">Severity</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-[var(--subtle)] tracking-widest uppercase">Date</th>
+                  <th className="px-6 py-4 text-xs font-mono font-semibold text-[var(--subtle)] tracking-widest uppercase">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className={`divide-y border-[var(--border)]`}>
                 {dbLoading ? (
                   <SkeletonTable rows={8} />
                 ) : (
@@ -405,31 +407,31 @@ const Violations = () => {
 
                     {!dbLoading && filteredViolations.length === 0 && (
                       <tr>
-                        <td colSpan="6" className="px-6 py-12 text-center text-slate-500 italic text-sm">
+                        <td colSpan="6" className="px-6 py-12 text-center text-[var(--subtle)] italic text-sm">
                           No violations found matching your filters.
                         </td>
                       </tr>
                     )}
 
                     {!dbLoading && filteredViolations.map((v) => (
-                      <tr key={v._id} className="cursor-pointer hover:bg-slate-800/60 transition-colors">
-                        <td className="px-6 py-4 font-mono text-sm text-white">{v.driverId}</td>
-                        <td className="px-6 py-4 text-sm text-slate-300">{v.location}</td>
+                      <tr key={v._id} className={`cursor-pointer transition-colors hover:bg-[var(--accent)]/5`}>
+                        <td className={`px-6 py-4 font-mono text-sm text-[var(--text)]`}>{v.driverId}</td>
+                        <td className="px-6 py-4 text-sm text-secondary">{v.location?.name || (typeof v.location === 'string' ? v.location : '—')}</td>
                         <td className="px-6 py-4 font-mono text-sm">
-                          <span className="text-white">{v.speed}</span>
-                          <span className="text-slate-500 mx-1">/</span>
-                          <span className="text-slate-400">{v.speedLimit}</span>
-                          <span className="text-slate-600 text-xs ml-1">km/h</span>
+                          <span className="text-[var(--text)]">{v.speed}</span>
+                          <span className="text-[var(--subtle)] mx-1">/</span>
+                          <span className="text-secondary">{v.speedLimit}</span>
+                          <span className="text-[var(--subtle)] text-xs ml-1">km/h</span>
                         </td>
                         <td className="px-6 py-4">
                           <SeverityBadge level={v.severity} />
                         </td>
-                        <td className="px-6 py-4 text-xs text-slate-400 font-mono">
+                        <td className="px-6 py-4 text-xs text-[var(--subtle)] font-mono">
                           {formatDate(v.createdAt)}
                         </td>
                         <td className="px-6 py-4 flex gap-3 items-center">
                           <button 
-                            className="text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 text-sm font-medium"
+                            className="text-[var(--accent)] hover:text-[var(--accent-light)] transition-colors flex items-center gap-1 text-sm font-medium"
                             aria-label={`View violation details for ${v.driverId}`}
                             title="View violation details"
                           >
@@ -464,12 +466,12 @@ const Violations = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* Left: input */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 space-y-4">
+          <div className={`rounded-xl border p-6 space-y-4 bg-[var(--surface)] border-[var(--border)] shadow-sm`}>
             <div className="flex items-center gap-3 mb-2">
-              <Camera size={20} className="text-accent" />
+              <Camera size={20} className="text-[var(--accent)]" />
               <div>
-                <h3 className="font-bold">Traffic Image Source</h3>
-                <p className="text-slate-400 text-xs">Upload a file or capture live from your camera</p>
+                <h3 className={`font-bold text-[var(--text)]`}>Traffic Image Source</h3>
+                <p className="text-[var(--subtle)] text-xs">Upload a file or capture live from your camera</p>
               </div>
             </div>
 
@@ -477,7 +479,7 @@ const Violations = () => {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => { stopWebcam(); fileInputRef.current?.click(); }}
-                className="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-xl text-sm font-semibold transition-colors"
+                className={`flex items-center justify-center gap-2 py-3 border rounded-xl text-sm font-semibold transition-all bg-[var(--card)] border-[var(--border)] text-[var(--text)] hover:bg-[var(--border)]`}
                 aria-label="Upload image file"
                 title="Upload image file"
               >
@@ -485,9 +487,9 @@ const Violations = () => {
               </button>
               <button
                 onClick={camMode ? stopWebcam : startWebcam}
-                className={`flex items-center justify-center gap-2 py-3 border rounded-xl text-sm font-semibold transition-colors ${camMode
+                className={`flex items-center justify-center gap-2 py-3 border rounded-xl text-sm font-semibold transition-all ${camMode
                     ? 'bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30'
-                    : 'bg-accent/20 border-accent/50 text-accent hover:bg-accent/30'
+                    : 'bg-[var(--accent)]/20 border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/30'
                   }`}
                 aria-label={camMode ? "Stop camera" : "Start live camera"}
                 title={camMode ? "Stop camera" : "Start live camera"}
@@ -505,12 +507,12 @@ const Violations = () => {
             {/* Webcam feed */}
             {camMode && (
               <div className="space-y-3">
-                <div className="relative rounded-xl overflow-hidden bg-black border border-slate-600">
+                <div className="relative rounded-xl overflow-hidden bg-black border border-[var(--border)]">
                   <video ref={videoRef} autoPlay playsInline muted
                     className="w-full rounded-xl" style={{ maxHeight: '200px', objectFit: 'cover' }} />
                   {!camReady && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
-                      <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                      <div className="w-8 h-8 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
                     </div>
                   )}
                   {camReady && (
@@ -524,7 +526,7 @@ const Violations = () => {
                 <button 
                   onClick={captureFrame} 
                   disabled={!camReady}
-                  className="w-full py-3 bg-accent text-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-3 bg-[var(--accent)] text-[var(--bg)] font-bold rounded-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
                   aria-label="Capture frame from camera"
                   title="Capture frame from camera"
                 >
@@ -535,22 +537,22 @@ const Violations = () => {
 
             {/* Preview */}
             {!camMode && selectedImage && (
-              <img src={selectedImage} alt="Selected" className="rounded-lg w-full object-cover max-h-48 border border-slate-600" />
+              <img src={selectedImage} alt="Selected" className="rounded-lg w-full object-cover max-h-48 border border-[var(--border)]" />
             )}
 
             {/* Drop zone */}
             {!camMode && !selectedImage && (
               <div onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-600 hover:border-accent rounded-xl p-8 text-center cursor-pointer transition-colors">
-                <Upload size={28} className="mx-auto mb-2 text-slate-500" />
-                <p className="text-slate-400 text-sm">Or click here to upload</p>
+                className="border-2 border-dashed border-[var(--border)] hover:border-[var(--accent)] rounded-xl p-8 text-center cursor-pointer transition-colors">
+                <Upload size={28} className="mx-auto mb-2 text-[var(--subtle)]" />
+                <p className="text-[var(--subtle)] text-sm">Or click here to upload</p>
               </div>
             )}
 
             <button 
               onClick={runScan} 
               disabled={!imageBase64 || scanning || camMode}
-              className="w-full py-3 bg-accent text-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-[var(--accent)] text-[var(--bg)] font-bold rounded-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg accent-glow"
               aria-label="Scan image for violations"
               title="Scan image for violations"
             >
@@ -561,17 +563,17 @@ const Violations = () => {
           </div>
 
           {/* Right: results */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-            <h3 className="font-bold mb-4 flex items-center gap-2"><ShieldAlert size={18} className="text-accent" /> Scan Results</h3>
+          <div className={`rounded-xl border p-6 bg-[var(--surface)] border-[var(--border)] shadow-sm`}>
+            <h3 className={`font-bold mb-4 flex items-center gap-2 text-[var(--text)]`}><ShieldAlert size={18} className="text-[var(--accent)]" /> Scan Results</h3>
             {!scanResult && !scanning && (
-              <div className="h-48 flex items-center justify-center text-slate-500 italic text-sm">
+              <div className="h-48 flex items-center justify-center text-[var(--subtle)] italic text-sm">
                 Capture or upload an image, then click Scan
               </div>
             )}
             {scanning && (
               <div className="h-48 flex flex-col items-center justify-center gap-3">
-                <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin" />
-                <p className="text-slate-400 text-sm">YOLOv8 analysing frame…</p>
+                <div className="w-10 h-10 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                <p className="text-[var(--subtle)] text-sm">YOLOv8 analysing frame…</p>
               </div>
             )}
             {scanResult && !scanning && (
@@ -580,26 +582,26 @@ const Violations = () => {
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="bg-slate-900 rounded-lg p-3">
-                      <p className="text-2xl font-black text-white">{scanResult.total_violations}</p>
-                      <p className="text-xs text-slate-400">Violations</p>
+                    <div className={`rounded-lg p-3 bg-[var(--card)]`}>
+                      <p className={`text-2xl font-black text-[var(--text)]`}>{scanResult.total_violations}</p>
+                      <p className="text-xs text-[var(--subtle)]">Violations</p>
                     </div>
-                    <div className="bg-slate-900 rounded-lg p-3">
-                      <p className="text-2xl font-black text-white">{scanResult.persons_detected}</p>
-                      <p className="text-xs text-slate-400">Persons</p>
+                    <div className={`rounded-lg p-3 bg-[var(--card)]`}>
+                      <p className={`text-2xl font-black text-[var(--text)]`}>{scanResult.persons_detected}</p>
+                      <p className="text-xs text-[var(--subtle)]">Persons</p>
                     </div>
-                    <div className="bg-slate-900 rounded-lg p-3">
-                      <p className="text-2xl font-black text-white">{scanResult.vehicles_detected}</p>
-                      <p className="text-xs text-slate-400">Vehicles</p>
+                    <div className={`rounded-lg p-3 bg-[var(--card)]`}>
+                      <p className={`text-2xl font-black text-[var(--text)]`}>{scanResult.vehicles_detected}</p>
+                      <p className="text-xs text-[var(--subtle)]">Vehicles</p>
                     </div>
                   </div>
 
                   {/* Breakdown */}
                   {scanResult.breakdown && (
-                    <div className="bg-slate-900 rounded-lg p-3 grid grid-cols-3 gap-2 text-center text-xs">
-                      <div><p className="text-white font-bold">{scanResult.breakdown.motorcycles}</p><p className="text-slate-400">Motorcycles</p></div>
-                      <div><p className="text-white font-bold">{scanResult.breakdown.bicycles}</p><p className="text-slate-400">Bicycles</p></div>
-                      <div><p className="text-white font-bold">{scanResult.breakdown.others}</p><p className="text-slate-400">Other Vehicles</p></div>
+                    <div className={`rounded-lg p-3 grid grid-cols-3 gap-2 text-center text-xs bg-[var(--card)]`}>
+                      <div><p className={`font-bold text-[var(--text)]`}>{scanResult.breakdown.motorcycles}</p><p className="text-[var(--subtle)]">Motorcycles</p></div>
+                      <div><p className={`font-bold text-[var(--text)]`}>{scanResult.breakdown.bicycles}</p><p className="text-[var(--subtle)]">Bicycles</p></div>
+                      <div><p className={`font-bold text-[var(--text)]`}>{scanResult.breakdown.others}</p><p className="text-[var(--subtle)]">Other Vehicles</p></div>
                     </div>
                   )}
 
@@ -610,11 +612,11 @@ const Violations = () => {
                   ) : (
                     <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                       {scanResult.violations.map((v, i) => (
-                        <div key={i} className="bg-slate-900 rounded-lg p-4 flex items-start justify-between gap-3">
+                        <div key={i} className={`rounded-lg p-4 flex items-start justify-between gap-3 bg-[var(--bg)] border border-[var(--border)]`}>
                           <div>
-                            <p className="font-semibold text-sm text-white">{v.type}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">Location: {v.location}</p>
-                            <p className="text-xs text-slate-500">Confidence: {(v.confidence * 100).toFixed(0)}%</p>
+                            <p className={`font-semibold text-sm text-[var(--text)]`}>{v.type}</p>
+                            <p className="text-xs text-[var(--subtle)] mt-0.5">Location: {v.location}</p>
+                            <p className="text-xs text-[var(--subtle)]">Confidence: {(v.confidence * 100).toFixed(0)}%</p>
                           </div>
                           <SeverityBadge level={v.severity} />
                         </div>

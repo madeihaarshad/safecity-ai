@@ -5,10 +5,15 @@ import numpy as np
 import cv2
 import base64
 import threading
+import time
+from datetime import datetime
 from ultralytics import YOLO
 
 app = Flask(__name__)
 CORS(app)
+
+# ── Application startup tracking ────────────────────────────
+start_time = time.time()
 
 print("🔍 Loading YOLOv8s model...")
 yolo_model = YOLO("yolov8s.pt")   # 's' (small) is more accurate than 'n' for class distinction
@@ -307,20 +312,50 @@ def detect_violations():
 # ════════════════════════════════════════════════════════════
 @app.route('/camera-stats', methods=['GET'])
 def camera_stats():
+    """
+    Returns comprehensive camera detection statistics.
+    Uses thread-safe access to detection_state.
+    """
     with state_lock:
         snapshot = dict(detection_state)
-    base = {"Low": 0.2, "Moderate": 0.55, "High": 0.85}
-    risk = min(0.99, base.get(snapshot["congestion_level"], 0.2)
-               + 0.05 * len(snapshot["violations_detected"]))
+    
+    # Extract last 5 violations for recent activity
+    recent_violations = snapshot["violations_detected"][-5:] if snapshot["violations_detected"] else []
+    
     return jsonify({
-        "status":            "success",
-        "camera_id":         "CAM-001",
-        "vehicle_count":     snapshot["vehicle_count"],
-        "pedestrian_count":  snapshot["pedestrian_count"],
-        "congestion_level":  snapshot["congestion_level"],
-        "active_violations": snapshot["violations_detected"],
-        "scene_risk_score":  round(risk, 2),
-        "frames_processed":  snapshot["frame_count"]
+        "status": "success",
+        "camera_id": "CAM-001",
+        "vehicle_count": snapshot["vehicle_count"],
+        "pedestrian_count": snapshot["pedestrian_count"],
+        "congestion_level": snapshot["congestion_level"],
+        "violations_count": len(snapshot["violations_detected"]),
+        "recent_violations": recent_violations,
+        "frames_processed": snapshot["frame_count"],
+        "last_updated": datetime.now().isoformat()
+    })
+
+
+# ════════════════════════════════════════════════════════════
+# ENDPOINT 3B — /reset-stats (for testing)
+# ════════════════════════════════════════════════════════════
+@app.route('/reset-stats', methods=['POST'])
+def reset_stats():
+    """
+    Resets all detection statistics to initial state.
+    Use for testing and clearing old data.
+    """
+    with state_lock:
+        detection_state["vehicle_count"] = 0
+        detection_state["pedestrian_count"] = 0
+        detection_state["congestion_level"] = "Low"
+        detection_state["violations_detected"] = []
+        detection_state["last_frame_objects"] = []
+        detection_state["frame_count"] = 0
+    
+    return jsonify({
+        "status": "success",
+        "message": "Detection statistics reset successfully",
+        "timestamp": datetime.now().isoformat()
     })
 
 
@@ -329,31 +364,140 @@ def camera_stats():
 # ════════════════════════════════════════════════════════════
 @app.route('/predict-risk', methods=['POST'])
 def predict_risk():
+    """
+    Calculate traffic risk score based on multiple factors.
+    
+    Expected JSON input:
+    {
+        "hour": 14,
+        "weather": "Rain",
+        "congestion": "Moderate",
+        "speed_avg": 72,
+        "incident_count": 3
+    }
+    """
     data = request.json
     try:
-        weather_factor = 1.5 if data.get('weather') == 'Rainy' else 1.0
-        time_factor    = 1.3 if 17 <= data.get('hour', 12) <= 19 else 1.0
-        congestion     = data.get('congestion', 0.5)
-        with state_lock:
-            cam_vehicles   = detection_state["vehicle_count"]
-            cam_violations = len(detection_state["violations_detected"])
-        camera_factor = 1.0 + (cam_vehicles * 0.02) + (cam_violations * 0.05)
-        base_risk     = congestion * weather_factor * time_factor * camera_factor
-        prediction    = min(0.99, base_risk * 0.45)
+        # Extract inputs with defaults
+        hour = data.get('hour', 12)
+        weather = data.get('weather', 'Clear')
+        congestion = data.get('congestion', 'Light')
+        speed_avg = data.get('speed_avg', 60)
+        incident_count = data.get('incident_count', 0)
+        
+        # Initialize score components
+        score = 0
+        breakdown = {}
+        
+        # ===== TIME OF DAY =====
+        # Night (0-5, 20-24) = +20, Rush hour (7-9, 16-18) = +15, else 0
+        if hour in range(0, 6) or hour in range(20, 24):
+            time_risk = 20
+            time_label = "Night"
+        elif hour in range(7, 10) or hour in range(16, 19):
+            time_risk = 15
+            time_label = "Rush Hour"
+        else:
+            time_risk = 0
+            time_label = "Normal"
+        
+        score += time_risk
+        breakdown['time'] = {
+            'points': time_risk,
+            'label': time_label,
+            'hour': hour
+        }
+        
+        # ===== WEATHER =====
+        weather_risk = {
+            'Clear': 0,
+            'Rain': 20,
+            'Fog': 25,
+            'Storm': 35
+        }.get(weather, 0)
+        
+        score += weather_risk
+        breakdown['weather'] = {
+            'points': weather_risk,
+            'condition': weather
+        }
+        
+        # ===== CONGESTION =====
+        congestion_risk = {
+            'Free Flow': 0,
+            'Light': 5,
+            'Moderate': 15,
+            'Severe': 25
+        }.get(congestion, 0)
+        
+        score += congestion_risk
+        breakdown['congestion'] = {
+            'points': congestion_risk,
+            'level': congestion
+        }
+        
+        # ===== SPEED =====
+        if speed_avg > 100:
+            speed_risk = 20
+            speed_label = "Excessive"
+        elif speed_avg > 80:
+            speed_risk = 10
+            speed_label = "High"
+        elif speed_avg < 50:
+            speed_risk = 5
+            speed_label = "Low"
+        else:
+            speed_risk = 0
+            speed_label = "Normal"
+        
+        score += speed_risk
+        breakdown['speed'] = {
+            'points': speed_risk,
+            'avg_kmh': speed_avg,
+            'label': speed_label
+        }
+        
+        # ===== INCIDENTS =====
+        incident_risk = min(incident_count * 8, 40)  # Each incident +8, capped at 40
+        score += incident_risk
+        breakdown['incidents'] = {
+            'points': incident_risk,
+            'count': incident_count
+        }
+        
+        # ===== NORMALIZE SCORE TO 0-100 =====
+        # Maximum possible score: 20 + 35 + 25 + 20 + 40 = 140
+        # Normalize: (actual_score / max_score) * 100
+        max_possible_score = 140
+        risk_score = min(100, (score / max_possible_score) * 100)
+        risk_score = round(risk_score, 1)
+        
+        # ===== DETERMINE RISK LEVEL =====
+        if risk_score >= 75:
+            level = "Critical"
+            recommendation = "Activate emergency protocols. Increase police presence. Consider route diversions."
+        elif risk_score >= 50:
+            level = "High"
+            recommendation = "Increase traffic monitoring. Alert drivers to hazardous conditions."
+        elif risk_score >= 25:
+            level = "Moderate"
+            recommendation = "Standard monitoring. Advise drivers to exercise caution."
+        else:
+            level = "Low"
+            recommendation = "Conditions are safe. Routine monitoring sufficient."
+        
         return jsonify({
-            "status":     "success",
-            "risk_score": round(prediction, 2),
-            "level":      "High" if prediction > 0.7 else "Moderate" if prediction > 0.4 else "Low",
-            "contributing_factors": {
-                "weather_factor":       weather_factor,
-                "time_factor":          time_factor,
-                "camera_vehicle_count": cam_vehicles,
-                "camera_violations":    cam_violations,
-                "camera_factor":        round(camera_factor, 2)
-            }
+            "status": "success",
+            "risk_score": risk_score,
+            "level": level,
+            "breakdown": breakdown,
+            "recommendation": recommendation,
+            "raw_score": score,
+            "max_score": max_possible_score
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
 
 
 # ════════════════════════════════════════════════════════════
@@ -380,14 +524,28 @@ def get_safest_route():
 # ════════════════════════════════════════════════════════════
 @app.route('/health', methods=['GET'])
 def health():
+    """
+    Health check endpoint for AI engine monitoring.
+    Polled by frontend every 30 seconds to verify engine status.
+    """
+    uptime_seconds = int(time.time() - start_time)
+    
     return jsonify({
-        "status":  "AI Engine Online",
-        "modules": {
-            "yolo":        "YOLOv8s (ultralytics)",
-            "opencv":      cv2.__version__,
-            "pathfinding": "NetworkX Dijkstra",
-            "night_mode":  "CLAHE Enhancement Active"
-        }
+        "status": "online",
+        "model": "YOLOv8s",
+        "model_loaded": yolo_model is not None,
+        "city_graph_nodes": city_map.number_of_nodes(),
+        "city_graph_edges": city_map.number_of_edges(),
+        "uptime_seconds": uptime_seconds,
+        "endpoints": [
+            "/detect-frame",
+            "/detect-violations",
+            "/camera-stats",
+            "/reset-stats",
+            "/predict-risk",
+            "/get-safest-route",
+            "/health"
+        ]
     })
 
 

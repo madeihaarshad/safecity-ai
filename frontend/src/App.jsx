@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, AlertTriangle, CloudRain, Map as MapIcon, BarChart3, Navigation, Bell, BellRing, ChevronLeft, ChevronRight, Menu, HelpCircle } from "lucide-react";
+import { LayoutDashboard, Users, AlertTriangle, CloudRain, Map as MapIcon, BarChart3, Navigation, Bell, BellRing, ChevronLeft, ChevronRight, Menu, HelpCircle, Sun, Moon } from "lucide-react";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 
 import Dashboard from "./pages/Dashboard";
 import Drivers from "./pages/Drivers";
@@ -25,9 +26,9 @@ const SidebarLink = ({ to, icon: Icon, label, collapsed, onClick }) => {
       onClick={onClick}
       title={collapsed ? label : undefined}
       aria-current={isActive ? "page" : undefined}
-      className={`group relative flex items-center py-3 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${isActive
-          ? "bg-slate-800 text-white font-bold border-l-2 border-accent"
-          : "text-slate-400 hover:bg-slate-800 border-l-2 border-transparent"
+      className={`group relative flex items-center py-3 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isActive
+          ? "bg-[var(--card)] text-[var(--accent)] font-bold border-l-4 border-[var(--accent)] accent-glow"
+          : "text-[var(--subtle)] hover:bg-[var(--card)] hover:text-[var(--accent)] border-l-4 border-transparent"
         } ${collapsed ? 'justify-center px-0 gap-0' : 'px-4 gap-3'}`}
     >
       <Icon size={20} className={`shrink-0 ${isActive ? "text-accent" : ""}`} />
@@ -36,7 +37,7 @@ const SidebarLink = ({ to, icon: Icon, label, collapsed, onClick }) => {
       </span>
       {/* Custom CSS tooltip */}
       {collapsed && (
-        <span className="absolute left-[calc(100%+1rem)] top-1/2 -translate-y-1/2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+        <span className="absolute left-[calc(100%+1rem)] top-1/2 -translate-y-1/2 px-2 py-1 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity shadow-lg">
           {label}
         </span>
       )}
@@ -45,6 +46,7 @@ const SidebarLink = ({ to, icon: Icon, label, collapsed, onClick }) => {
 };
 
 const NotificationBell = () => {
+  const { theme } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -111,10 +113,10 @@ const NotificationBell = () => {
     const map = {
       Critical: "text-red-500 bg-red-500/10",
       High: "text-orange-500 bg-orange-500/10",
-      Normal: "text-blue-500 bg-blue-500/10",
+      Normal: "text-lime-400 bg-lime-500/10",
       Low: "text-green-500 bg-green-500/10"
     };
-    return map[priority] || "text-slate-400 bg-slate-700/10";
+    return map[priority] || "text-[var(--subtle)] bg-[var(--muted)]/10";
   };
 
   const getPriorityIcon = (priority) => {
@@ -135,7 +137,9 @@ const NotificationBell = () => {
       <button
         ref={bellRef}
         onClick={handleBellClick}
-        className="relative p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className={`relative p-2 rounded-lg transition-colors text-[var(--subtle)] hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+          theme === 'dark' ? 'hover:bg-[var(--card)]' : 'hover:bg-gray-100'
+        }`}
         title="Notifications"
       >
         {notifications.length > 0 && !isOpen ? <BellRing size={20} /> : <Bell size={20} />}
@@ -150,15 +154,21 @@ const NotificationBell = () => {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute top-12 right-0 w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50"
+          className={`absolute top-12 right-0 w-80 border rounded-lg shadow-lg z-50 transition-all duration-200 ${
+            theme === 'dark'
+              ? 'bg-[var(--surface)] border-[var(--border)] shadow-black/40'
+              : 'bg-white border-gray-200 shadow-gray-200/50'
+          }`}
         >
           {/* Header with Clear All button */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
-            <h3 className="text-sm font-bold text-white">Notifications</h3>
+          <div className={`flex items-center justify-between px-4 py-3 border-b ${
+            theme === 'dark' ? 'border-[var(--border)]' : 'border-[var(--border)]'
+          }`}>
+            <h3 className={`text-sm font-bold ${theme === 'dark' ? 'text-[var(--text)]' : 'text-[var(--text)]'}`}>Notifications</h3>
             {notifications.length > 0 && (
               <button
                 onClick={handleClearAll}
-                className="text-xs text-slate-400 hover:text-red-400 transition-colors font-semibold"
+                className="text-xs text-[var(--subtle)] hover:text-[var(--danger)] transition-colors font-semibold"
               >
                 Clear All
               </button>
@@ -168,14 +178,18 @@ const NotificationBell = () => {
           {/* Notifications list */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-slate-500 text-sm">
+              <div className="px-4 py-8 text-center text-[var(--subtle)] text-sm">
                 No notifications yet
               </div>
             ) : (
               notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className="px-4 py-3 border-b border-slate-700/50 last:border-b-0 hover:bg-slate-700/50 transition-colors"
+                  className={`px-4 py-3 border-b last:border-b-0 transition-colors ${
+                    theme === 'dark'
+                      ? 'border-[var(--border)] hover:bg-[var(--muted)]/30'
+                      : 'border-[var(--border)] hover:bg-[var(--muted)]/20'
+                  }`}
                 >
                   <div className="flex gap-3">
                     {/* Priority icon */}
@@ -185,13 +199,13 @@ const NotificationBell = () => {
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">
+                      <p className={`text-sm font-semibold truncate ${theme === 'dark' ? 'text-[var(--text)]' : 'text-[var(--text)]'}`}>
                         {notif.title}
                       </p>
-                      <p className="text-xs text-slate-400 line-clamp-2 mt-1">
+                      <p className={`text-xs line-clamp-2 mt-1 ${theme === 'dark' ? 'text-[var(--subtle)]' : 'text-[var(--subtle)]'}`}>
                         {notif.message}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-[var(--subtle)]/70' : 'text-[var(--subtle)]/80'}`}>
                         {getTimeAgo(notif.timestamp)}
                       </p>
                     </div>
@@ -207,6 +221,7 @@ const NotificationBell = () => {
 };
 
 const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
+  const { theme, toggle } = useTheme();
   const location = useLocation();
   const [time, setTime] = useState(new Date());
 
@@ -227,37 +242,61 @@ const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
   };
 
   return (
-    <header className="h-14 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 flex items-center justify-between px-6 z-10 shrink-0">
+    <header className={`h-14 backdrop-blur-md border-b flex items-center justify-between px-6 z-10 shrink-0 transition-colors ${
+      theme === 'dark'
+        ? 'bg-[var(--bg)]/80 border-[var(--border)]'
+        : 'bg-white/80 border-gray-200'
+    }`}>
       <div className="flex items-center gap-4">
         {isMobile && (
           <button 
             onClick={onMenuClick} 
-            className="md:hidden p-1.5 -ml-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            className="md:hidden p-1.5 -ml-2 text-[var(--subtle)] hover:text-[var(--text)] rounded-lg hover:bg-[var(--card)] transition-colors"
             aria-label="Open menu"
           >
             <Menu size={20} />
           </button>
         )}
-        <h2 className="font-bold text-white text-lg">{getPageTitle(location.pathname)}</h2>
-        <div className="text-slate-400 text-sm font-mono bg-slate-800/50 px-2 py-1 rounded hidden sm:block">
+        <h2 className={`font-bold text-lg text-[var(--text)]`}>{getPageTitle(location.pathname)}</h2>
+        <div className={`text-sm font-mono px-2 py-1 rounded hidden sm:block ${
+          theme === 'dark' ? 'text-[var(--subtle)] bg-[var(--card)]/50' : 'text-slate-500 bg-gray-100'
+        }`}>
           {formatTime(time)}
         </div>
       </div>
       <div className="flex items-center gap-2">
         <button
           onClick={onHelpClick}
-          className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className={`p-2 rounded-lg transition-colors text-[var(--subtle)] hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            theme === 'dark' ? 'hover:bg-[var(--card)]' : 'hover:bg-[var(--muted)]/20'
+          }`}
           aria-label="Open help panel"
           title="Help"
         >
           <HelpCircle size={20} />
         </button>
+        <button
+          onClick={toggle}
+          className={`relative flex items-center w-14 h-7 rounded-full p-1 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            theme === 'dark' ? 'bg-[var(--card)]' : 'bg-gray-200'
+          }`}
+          aria-label="Toggle theme"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          <div className={`flex items-center justify-center w-5 h-5 rounded-full shadow-md transform transition-transform duration-300 ${
+            theme === 'dark' ? 'translate-x-7 bg-[var(--accent)]' : 'translate-x-0 bg-white'
+          }`}>
+            {theme === 'dark' ? <Sun size={12} className="text-[var(--bg)]" /> : <Moon size={12} className="text-[var(--bg)]" />}
+          </div>
+        </button>
         <NotificationBell />
-        <div className="flex items-center gap-3 border-l border-slate-700 pl-4">
-          <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-sm font-bold text-accent border border-slate-700">
+        <div className={`flex items-center gap-3 border-l pl-4 border-[var(--border)]`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-[var(--accent)] border ${
+            theme === 'dark' ? 'bg-[var(--surface)] border-[var(--border)]' : 'bg-gray-100 border-gray-200'
+          }`}>
             <Users size={16} />
           </div>
-          <span className="text-sm font-semibold text-white hidden sm:block">SafeCity AI</span>
+          <span className={`text-sm font-semibold hidden sm:block text-[var(--text)]`}>SafeCity AI</span>
         </div>
       </div>
     </header>
@@ -265,6 +304,7 @@ const TopHeader = ({ onMenuClick, isMobile, onHelpClick }) => {
 };
 
 const AppContent = () => {
+  const { theme } = useTheme();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [helpPanelOpen, setHelpPanelOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -322,7 +362,9 @@ const AppContent = () => {
   const isCollapsed = !sidebarOpen && !isMobile;
 
   return (
-    <div className="flex h-screen overflow-hidden relative bg-dark">
+    <div 
+      className={`flex h-screen overflow-hidden relative transition-colors duration-300 bg-[var(--bg)]`}
+    >
       {/* Mobile Backdrop */}
       {isMobile && sidebarOpen && (
         <div
@@ -335,23 +377,24 @@ const AppContent = () => {
       <aside
         className={`
           ${isMobile ? "fixed inset-y-0 left-0 z-30" : "relative z-20"}
-          bg-slate-900 border-r border-slate-800 flex flex-col shrink-0
+          border-r flex flex-col shrink-0
           transition-all duration-300 ease-in-out
+          bg-[var(--surface)] border-[var(--border)]
           ${isMobile
             ? (sidebarOpen ? "w-64 translate-x-0" : "w-64 -translate-x-full")
             : (sidebarOpen ? "w-64" : "w-16")
           }
         `}
       >
-        <div className="relative p-6 border-b border-slate-800 flex items-center min-h-[81px] overflow-hidden">
-          <h1 className={`text-xl font-bold text-accent flex items-center gap-2 transition-all duration-300 ${isCollapsed ? 'opacity-0 translate-x-[-20px]' : 'opacity-100 translate-x-0'}`}>
-            <div className="w-8 h-8 bg-accent rounded flex items-center justify-center text-dark shrink-0">S</div>
+        <div className={`relative p-6 border-b flex items-center min-h-[81px] overflow-hidden border-[var(--border)]`}>
+          <h1 className={`text-xl font-bold text-[var(--accent)] flex items-center gap-2 transition-all duration-300 ${isCollapsed ? 'opacity-0 translate-x-[-20px]' : 'opacity-100 translate-x-0'}`}>
+            <div className="w-8 h-8 bg-[var(--accent)] rounded flex items-center justify-center text-[var(--bg)] font-bold shrink-0 shadow-lg accent-glow">S</div>
             <span className="whitespace-nowrap">SafeCity AI</span>
           </h1>
 
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`absolute top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-all z-10 ${isCollapsed ? 'left-1/2 -translate-x-1/2' : 'right-4'}`}
+            className={`absolute top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-[var(--card)] text-[var(--subtle)] hover:text-[var(--accent)] transition-all z-10 ${isCollapsed ? 'left-1/2 -translate-x-1/2' : 'right-4'}`}
             title={sidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
           >
             {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
@@ -368,13 +411,13 @@ const AppContent = () => {
           <SidebarLink to="/planner" icon={Navigation} label="Route Planner" collapsed={isCollapsed} onClick={() => isMobile && setSidebarOpen(false)} />
         </nav>
 
-        <div className={`bg-slate-950 text-[8px] text-slate-500 text-center transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'opacity-0 h-0 p-0 overflow-hidden' : 'p-4 opacity-100'}`}>
+        <div className={`text-[8px] text-[var(--subtle)] text-center transition-all duration-300 whitespace-nowrap bg-[var(--bg)] border-t border-[var(--border)] ${isCollapsed ? 'opacity-0 h-0 p-0 overflow-hidden' : 'p-4 opacity-100'}`}>
           v1.0.4 - System Secure
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-dark w-full">
+      <div className="flex-1 flex flex-col min-w-0 w-full transition-colors duration-300 bg-[var(--bg)]">
         <TopHeader 
           onMenuClick={() => setSidebarOpen(true)} 
           isMobile={isMobile}
@@ -414,11 +457,13 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <Router>
-      <AppContent />
-      <Toast />
-      <WelcomeModal />
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <AppContent />
+        <Toast />
+        <WelcomeModal />
+      </Router>
+    </ThemeProvider>
   );
 };
 

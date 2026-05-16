@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import socket from '../socket';
 import { Zap, WifiOff } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 // Helper to get color classes by riskTier
 const getRiskColor = (riskTier) => {
   const colorMap = {
-    safe: { text: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', dot: 'bg-green-500' },
+    safe: { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', dot: 'bg-emerald-500' },
     medium: { text: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', dot: 'bg-yellow-500' },
     high: { text: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', dot: 'bg-orange-500' },
     critical: { text: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', dot: 'bg-red-500' },
@@ -29,6 +30,7 @@ const getTimeSinceUpdate = (timestamp) => {
 
 // Individual Sensor Card
 const SensorCard = ({ sensor }) => {
+  const { theme } = useTheme();
   const [timeAgo, setTimeAgo] = useState('now');
   const speed = sensor.lastReading?.value ?? null;
   const unit = sensor.lastReading?.unit ?? 'km/h';
@@ -51,17 +53,15 @@ const SensorCard = ({ sensor }) => {
   }, [timestamp]);
 
   return (
-    <div className={`relative bg-slate-900 rounded-lg border border-slate-700 p-4 hover:border-slate-600 transition-all group ${
-      isOffline ? 'opacity-50' : ''
-    }`}>
+    <div className={`relative p-5 rounded-lg border transition-all group bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent)] shadow-sm ${isOffline ? 'opacity-50' : ''}`}>
       {/* Top accent bar */}
       <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${colorClasses.bg} via-transparent to-transparent`} />
 
       {/* Offline overlay icon */}
       {isOffline && (
         <div className="absolute top-2 right-2 z-10">
-          <div className="p-1.5 bg-slate-800/90 rounded-full border border-slate-700">
-            <WifiOff size={14} className="text-slate-500" />
+          <div className="p-1.5 bg-[var(--bg)] rounded-full border border-[var(--border)]">
+            <WifiOff size={14} className="text-[var(--subtle)]" />
           </div>
         </div>
       )}
@@ -69,18 +69,18 @@ const SensorCard = ({ sensor }) => {
       {/* Header: Location + Status */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <p className="text-xs font-mono text-slate-500 tracking-wider uppercase mb-1">
+          <p className="text-xs font-mono text-[var(--subtle)] tracking-wider uppercase mb-1">
             Sensor {sensor.sensorId}
           </p>
-          <p className="text-sm font-bold text-white">{sensor.location}</p>
+          <p className={`text-sm font-bold text-[var(--text)]`}>{sensor.location}</p>
         </div>
         <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-mono border ${
           status === 'Online' 
-            ? 'bg-green-500/10 border-green-500/30 text-green-400'
-            : 'bg-slate-800 border-slate-700 text-slate-500'
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+            : 'bg-[var(--card)] border-[var(--border)] text-[var(--subtle)]'
         }`}>
           <span className={`w-1.5 h-1.5 rounded-full ${
-            status === 'Online' ? 'bg-green-500 animate-pulse' : 'bg-slate-600'
+            status === 'Online' ? 'bg-emerald-500 animate-pulse' : 'bg-[var(--subtle)]'
           }`} />
           <span className="text-[10px]">{isOffline ? 'Offline' : status}</span>
         </div>
@@ -92,28 +92,28 @@ const SensorCard = ({ sensor }) => {
           <p className={`text-4xl font-mono font-bold ${colorClasses.text} tracking-tight`}>
             {Math.round(speed)}
           </p>
-          <p className="text-xs text-slate-500 font-mono mt-1">{unit}</p>
+          <p className="text-xs text-[var(--subtle)] font-mono mt-1">{unit}</p>
         </div>
       ) : (
         <div className="mb-3 h-16 flex items-center justify-center">
-          <p className="text-xs text-slate-600 font-mono">No reading</p>
+          <p className="text-xs text-[var(--subtle)] font-mono">No reading</p>
         </div>
       )}
 
       {/* Risk tier badge + time */}
-      <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+      <div className={`flex items-center justify-between pt-3 border-t border-[var(--border)]`}>
         {!isOffline ? (
           <>
             <div className={`px-2 py-1 rounded text-xs font-mono border ${colorClasses.border} ${colorClasses.bg}`}>
               <span className={colorClasses.text}>{riskTier.toUpperCase()}</span>
             </div>
-            <span className="text-xs text-slate-600 font-mono tracking-wider">
+            <span className="text-xs text-[var(--subtle)] font-mono tracking-wider">
               {timeAgo}
             </span>
           </>
         ) : (
           <div className="w-full text-center">
-            <span className="text-xs text-slate-600 font-mono">
+            <span className="text-xs text-[var(--subtle)] font-mono">
               Sensor offline
             </span>
           </div>
@@ -130,6 +130,7 @@ const SensorCard = ({ sensor }) => {
 
 // Main SensorGrid Component
 const SensorGrid = () => {
+  const { theme } = useTheme();
   const [sensors, setSensors] = useState(new Map());
   const sensorsRef = useRef(new Map());
 
@@ -152,9 +153,9 @@ const SensorGrid = () => {
   // If no sensors yet, return empty grid
   if (sensors.size === 0) {
     return (
-      <div className="bg-slate-900 rounded-lg border border-slate-800 p-6 text-center">
-        <Zap className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-        <p className="text-xs font-mono text-slate-500 tracking-wider uppercase">
+      <div className={`rounded-lg border p-6 text-center bg-[var(--surface)] border-[var(--border)] shadow-sm`}>
+        <Zap className="w-8 h-8 text-[var(--subtle)] mx-auto mb-2" />
+        <p className="text-xs font-mono text-[var(--subtle)] tracking-wider uppercase">
           Waiting for sensor data...
         </p>
       </div>

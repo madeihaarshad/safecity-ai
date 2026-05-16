@@ -5,7 +5,7 @@ const driverSchema = new mongoose.Schema({
   licenseNumber: { type: String, required: true, unique: true },
   status: { type: String, enum: ["Active", "Suspended", "Offline"], default: "Offline" },
   vehiclePlate: { type: String, required: true },
-  safetyScore: { type: Number, default: 100 },
+  safetyScore: { type: Number, default: 100, min: 0, max: 100 },
   lastLocation: {
     lat: Number,
     lng: Number

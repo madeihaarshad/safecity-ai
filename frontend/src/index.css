@@ -3,33 +3,51 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --color-bg-base: #0f172a;
-    --color-bg-elevated: #1e293b;
-    --color-bg-overlay: #0b1120;
-    
-    --color-border-subtle: #1e293b;
-    --color-border-default: #334155;
-    --color-border-strong: #475569;
-    
-    --color-text-primary: #f1f5f9;
-    --color-text-secondary: #94a3b8;
-    --color-text-muted: #475569;
-    
-    --color-status-critical: #ef4444;
-    --color-status-high: #f97316;
-    --color-status-normal: #38bdf8;
-    --color-status-low: #22c55e;
-    
-    --color-accent-primary: #38bdf8;
-  }
+:root {
+  --bg:        #F0FDF4;
+  --surface:   #FFFFFF;
+  --card:      #FFFFFF;
+  --border:    #BBF7D0;
+  --muted:     #86EFAC;
+  --text:      #052E16;
+  --subtle:    #16A34A;
+  --accent:    #16A34A;
+  --gold:      #CA8A04;
+  --danger:    #DC2626;
+  --warning:   #EA580C;
+  --success:   #16A34A;
+}
+
+.dark {
+  --bg:        #071309;
+  --surface:   #0A1F0D;
+  --card:      #0F2912;
+  --border:    #1A4020;
+  --muted:     #2A5C32;
+  --text:      #E6F4E8;
+  --subtle:    #7FAF88;
+  --accent:    #4ADE80;
+  --gold:      #FACC15;
+  --danger:    #EF4444;
+  --warning:   #FB923C;
+  --success:   #4ADE80;
 }
 
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, sans-serif;
-  background-color: var(--color-bg-base);
-  color: var(--color-text-primary);
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.dark .accent-glow {
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.15), 0 0 40px rgba(74, 222, 128, 0.05);
+}
+
+.dark .gold-glow {
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.15);
+}
 }
 
 @layer components {
@@ -38,19 +56,19 @@ body {
     background-color: rgba(239, 68, 68, 0.1);
     border-color: var(--color-status-critical);
   }
-  
+
   .status-high {
     color: var(--color-status-high);
     background-color: rgba(249, 115, 22, 0.1);
     border-color: var(--color-status-high);
   }
-  
+
   .status-normal {
     color: var(--color-status-normal);
     background-color: rgba(56, 189, 248, 0.1);
     border-color: var(--color-status-normal);
   }
-  
+
   .status-low {
     color: var(--color-status-low);
     background-color: rgba(34, 197, 94, 0.1);
@@ -62,17 +80,96 @@ body {
   }
 
   .card-base {
-    @apply bg-elevated border border-subtle rounded-xl;
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 0.75rem;
+  }
+
+  .text-primary {
+    color: var(--color-text-primary);
+  }
+
+  .text-secondary {
+    color: var(--color-text-secondary);
+  }
+
+  .bg-base {
+    background-color: var(--color-bg-base);
+  }
+
+  .bg-elevated {
+    background-color: var(--color-bg-elevated);
+  }
+
+  .border-subtle {
+    border-color: var(--color-border-subtle);
   }
 }
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: var(--color-bg-elevated);
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--color-border-default);
   border-radius: 10px;
+}
+
+/* Help System Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.4s ease-out;
+}
+
+/* Google Places Autocomplete Styles */
+.pac-container {
+  background: #0F2912;
+  border: 1px solid #1A4020;
+  border-top: none;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  margin-top: 4px;
+}
+.pac-item {
+  color: #7FAF88;
+  border-top: 1px solid #1A4020;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.pac-item:hover {
+  background: #1A4020;
+}
+.pac-item-query {
+  color: #E6F4E8;
+  font-size: 14px;
+}
+.pac-icon {
+  filter: invert(1) sepia(1) saturate(3) hue-rotate(85deg);
 }

@@ -12,6 +12,7 @@ import {
   ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import { ServerCrash } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 // ── Mock alert pool — always available even without backend ──────────────────
 const MOCK_ALERTS = [
@@ -89,49 +90,66 @@ const MOCK_ALERTS = [
 
 // ── Custom chart tooltip ─────────────────────────────────────────────────────
 const HackTooltip = ({ active, payload, label }) => {
+  const { theme } = useTheme();
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-slate-900 border border-sky-500/30 rounded px-3 py-2 shadow-lg">
-      <p className="text-[9px] font-mono text-sky-400 tracking-widest uppercase mb-1">{label}</p>
-      <p className="text-sm font-bold text-white font-mono">{payload[0].value}%</p>
+    <div className={`border rounded px-3 py-2 shadow-lg ${
+      theme === 'dark' ? 'bg-[var(--surface)] border-[var(--accent)]/30' : 'bg-white border-[var(--accent)]/50 shadow-sky-500/10'
+    }`}>
+      <p className="text-[9px] font-mono text-[var(--accent)] tracking-widest uppercase mb-1">{label}</p>
+      <p className={`text-sm font-bold font-mono text-[var(--text)]`}>{payload[0].value}%</p>
     </div>
   );
 };
 
 // ── Live status badge ─────────────────────────────────────────────────────────
-const LiveBadge = ({ hasAlerts }) => (
-  <div className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-mono tracking-widest uppercase border transition-all duration-500 ${hasAlerts
-      ? 'bg-red-950/50 border-red-500/40 text-red-400'
-      : 'bg-slate-900 border-slate-700 text-slate-400'
+const LiveBadge = ({ hasAlerts }) => {
+  const { theme } = useTheme();
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-mono tracking-widest uppercase border transition-all duration-500 ${
+      hasAlerts
+        ? 'bg-red-950/50 border-red-500/40 text-red-400'
+        : theme === 'dark'
+          ? 'bg-[var(--surface)] border-[var(--border)] text-[var(--subtle)]'
+          : 'bg-[var(--surface)] border-[var(--border)] text-[var(--subtle)] shadow-sm'
     }`}>
-    <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${hasAlerts
-        ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]'
-        : 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)]'
-      }`} />
-    {hasAlerts ? 'Incidents Active' : 'System Live'}
-  </div>
-);
+      <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${hasAlerts
+          ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]'
+          : 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)]'
+        }`} />
+      {hasAlerts ? 'Incidents Active' : 'System Live'}
+    </div>
+  );
+};
 
 // ── Stat card ────────────────────────────────────────────────────────────────
+const safeDisplay = (v) =>
+  v === null || v === undefined ? '—'
+  : typeof v === 'object' ? (v.total ?? v.level ?? '—')
+  : String(v);
+
 const HackStatCard = ({ title, value, icon: Icon, color, trend, sub, unit, description, loading }) => {
+  const { theme } = useTheme();
   const colorMap = {
-    blue: { text: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', bar: 'bg-sky-500', topBar: 'from-sky-500/70', borderLeft: 'border-l-sky-500' },
+    blue: { text: 'text-lime-400', bg: 'bg-lime-500/10', border: 'border-lime-500/20', bar: 'bg-lime-500', topBar: 'from-lime-500/70', borderLeft: 'border-l-lime-500' },
     red: { text: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', bar: 'bg-red-500', topBar: 'from-red-500/70', borderLeft: 'border-l-red-500' },
     yellow: { text: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', bar: 'bg-yellow-500', topBar: 'from-yellow-500/70', borderLeft: 'border-l-yellow-500' },
-    green: { text: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', bar: 'bg-green-500', topBar: 'from-green-500/70', borderLeft: 'border-l-green-500' },
+    green: { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', bar: 'bg-emerald-500', topBar: 'from-emerald-500/70', borderLeft: 'border-l-emerald-500' },
   };
   const c = colorMap[color] || colorMap.blue;
   const TrendIcon = trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus;
 
   return (
-    <div className={`relative bg-slate-900 rounded-lg border ${c.border} border-l-4 ${c.borderLeft} overflow-visible group hover:brightness-110 transition-all duration-300`}>
+    <div className={`relative rounded-lg border ${c.border} border-l-4 ${c.borderLeft} overflow-visible group hover:brightness-110 transition-all duration-300 accent-glow ${
+      theme === 'dark' ? 'bg-[var(--surface)]' : 'bg-white shadow-sm'
+    }`}>
       <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${c.topBar} via-transparent to-transparent`} />
 
       {/* Tooltip */}
       {description && (
         <span
           role="tooltip"
-          className="absolute left-1/2 -top-10 -translate-x-1/2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg border border-slate-700 transition-opacity"
+          className="absolute left-1/2 -top-10 -translate-x-1/2 px-2 py-1 bg-[var(--card)] text-[var(--text)] text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg border border-[var(--border)] transition-opacity"
         >
           {description}
         </span>
@@ -152,14 +170,14 @@ const HackStatCard = ({ title, value, icon: Icon, color, trend, sub, unit, descr
             </div>
           )}
         </div>
-        <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-slate-500 mb-1">{title}</p>
+        <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-[var(--subtle)] mb-1">{title}</p>
 
         {loading ? (
           <div className="animate-pulse bg-slate-700 rounded h-8 w-24 mt-1 mb-1"></div>
         ) : (
           <>
-            <p className={`text-3xl font-bold font-mono ${c.text}`}>{value}</p>
-            {unit && <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest block">{unit}</p>}
+            <p className={`text-3xl font-bold font-mono ${c.text}`}>{safeDisplay(value)}</p>
+            {unit && <p className="text-[10px] font-mono text-[var(--subtle)] uppercase tracking-widest block">{unit}</p>}
           </>
         )}
 
@@ -171,18 +189,25 @@ const HackStatCard = ({ title, value, icon: Icon, color, trend, sub, unit, descr
 };
 
 // ── Panel wrapper ─────────────────────────────────────────────────────────────
-const Panel = ({ title, tag, children }) => (
-  <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-950/60">
-      <h3 className="text-[10px] font-mono font-bold tracking-[0.2em] uppercase text-white">{title}</h3>
-      {tag && <span className="text-[8px] font-mono text-slate-600 tracking-widest uppercase">{tag}</span>}
+const Panel = ({ title, tag, children }) => {
+  const { theme } = useTheme();
+  return (
+    <div className={`rounded-lg border overflow-hidden ${
+      theme === 'dark' ? 'bg-[var(--surface)] border-[var(--border)]' : 'bg-white border-gray-100 shadow-sm'
+    }`}>
+      <div className={`flex items-center justify-between px-5 py-3 border-b ${
+        theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-gray-50 bg-gray-50/50'
+      }`}>
+        <h3 className={`text-[10px] font-mono font-bold tracking-[0.2em] uppercase text-[var(--text)]`}>{title}</h3>
+        {tag && <span className="text-[8px] font-mono text-[var(--subtle)] tracking-widest uppercase">{tag}</span>}
+      </div>
+      {children}
     </div>
-    {children}
-  </div>
-);
+  );
+};
 
 // ── City Risk Banner ─────────────────────────────────────────────────────────────
-const CityRiskBanner = () => {
+const CityRiskBanner = ({ theme }) => {
   const [riskData, setRiskData] = useState({ riskScore: 0, level: 'SAFE' });
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -242,11 +267,11 @@ const CityRiskBanner = () => {
         };
       default:
         return {
-          bg: 'bg-slate-900 border border-slate-700',
+          bg: 'bg-[var(--surface)] border border-[var(--border)]',
           icon: Shield,
-          iconColor: 'text-slate-400',
+          iconColor: 'text-[var(--subtle)]',
           title: 'City Status: Unknown',
-          titleColor: 'text-slate-300',
+          titleColor: 'text-[var(--subtle)]',
         };
     }
   };
@@ -268,16 +293,16 @@ const CityRiskBanner = () => {
           <h2 className={`text-lg font-bold ${style.titleColor}`}>
             {style.title}
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-[var(--subtle)] mt-1">
             Last updated: {getTimeString()}
           </p>
         </div>
       </div>
       <div className="text-right">
-        <p className="text-3xl font-bold font-mono text-white">
+        <p className={`text-3xl font-bold font-mono text-[var(--text)]`}>
           {riskData.riskScore}
         </p>
-        <p className="text-xs text-slate-400 mt-1">Risk Score</p>
+        <p className="text-xs text-[var(--subtle)] mt-1">Risk Score</p>
       </div>
     </div>
   );
@@ -285,6 +310,7 @@ const CityRiskBanner = () => {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 const Dashboard = () => {
+  const { theme } = useTheme();
   const [stats, setStats] = useState({ drivers: 0, violations: 0, disasters: 0, riskLevel: 'Low' });
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -391,11 +417,11 @@ const Dashboard = () => {
   const hasCritical = alerts.some(a => a.priority === 'Critical');
 
   return (
-    <div className="p-6 space-y-6 bg-slate-950 min-h-full">
+    <div className={`p-6 space-y-6 min-h-full transition-colors duration-300 bg-[var(--bg)]`}>
       <Breadcrumb crumbs={[{ label: 'Dashboard' }]} />
 
       {/* City Risk Banner */}
-      <CityRiskBanner />
+      <CityRiskBanner theme={theme} />
 
       {/* Header */}
       <SectionHeader
@@ -432,11 +458,11 @@ const Dashboard = () => {
 
           {/* Fleet Status Group */}
           <div>
-            <h4 className="text-[9px] font-mono text-slate-600 tracking-[0.2em] uppercase mb-3">FLEET STATUS</h4>
+            <h4 className="text-[9px] font-mono text-[var(--subtle)] tracking-[0.2em] uppercase mb-3">FLEET STATUS</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <HackStatCard
                 title="Total Fleet"
-                value={stats.drivers}
+                value={typeof stats.drivers === 'object' ? stats.drivers.total : stats.drivers}
                 icon={Car}
                 color="blue"
                 sub="ACTIVE VEHICLES"
@@ -446,7 +472,7 @@ const Dashboard = () => {
               />
               <HackStatCard
                 title="AI Risk Index"
-                value={stats.riskLevel}
+                value={typeof stats.riskLevel === 'object' ? (stats.riskLevel.level ?? stats.riskLevel.total ?? JSON.stringify(stats.riskLevel)) : stats.riskLevel}
                 icon={Activity}
                 color="green"
                 sub="CITY-WIDE THREAT LEVEL"
@@ -459,25 +485,25 @@ const Dashboard = () => {
 
           {/* Safety Metrics Group */}
           <div>
-            <h4 className="text-[9px] font-mono text-slate-600 tracking-[0.2em] uppercase mb-3">SAFETY METRICS</h4>
+            <h4 className="text-[9px] font-mono text-[var(--subtle)] tracking-[0.2em] uppercase mb-3">SAFETY METRICS</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <HackStatCard
                 title="Violations (24h)"
-                value={stats.violations}
+                value={typeof stats.violations === 'object' ? stats.violations.total : stats.violations}
                 icon={ShieldAlert}
                 color="red"
                 trend={12}
-                sub="VS YESTERDAY"
+                sub={typeof stats.violations === 'object' && stats.violations.high !== undefined ? `HIGH: ${stats.violations.high} · MED: ${stats.violations.medium} · LOW: ${stats.violations.low}` : "VS YESTERDAY"}
                 loading={loading}
                 unit="incidents"
                 description="Total traffic and safety violations recorded in the last 24 hours"
               />
               <HackStatCard
                 title="Disaster Events"
-                value={stats.disasters}
+                value={typeof stats.disasters === 'object' ? stats.disasters.total : stats.disasters}
                 icon={Waves}
                 color="yellow"
-                sub="ACTIVE INCIDENTS"
+                sub={typeof stats.disasters === 'object' && stats.disasters.high !== undefined ? `HIGH: ${stats.disasters.high} · MED: ${stats.disasters.medium} · LOW: ${stats.disasters.low}` : "ACTIVE INCIDENTS"}
                 loading={loading}
                 unit="active"
                 description="Ongoing environmental or infrastructure emergencies"
@@ -499,7 +525,7 @@ const Dashboard = () => {
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-[600px]">
         {loading ? (
-          <div className="lg:col-span-3 bg-slate-900 rounded-lg border border-slate-800 p-6">
+          <div className={`lg:col-span-3 rounded-lg border p-6 bg-[var(--surface)] border-[var(--border)]`}>
             <table className="w-full">
               <tbody className="divide-y divide-slate-800"><SkeletonTable rows={6} /></tbody>
             </table>
@@ -517,18 +543,18 @@ const Dashboard = () => {
                           <linearGradient id="riskGrad" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
                             <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                        <XAxis dataKey="name" stroke="#334155" tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} />
-                        <YAxis stroke="#334155" tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} tickFormatter={v => `${v}%`} />
-                        <Tooltip content={<HackTooltip />} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="name" stroke="var(--border)" tick={{ fill: 'var(--subtle)', fontSize: 9, fontFamily: 'monospace' }} />
+                      <YAxis stroke="var(--border)" tick={{ fill: 'var(--subtle)', fontSize: 9, fontFamily: 'monospace' }} tickFormatter={v => `${v}%`} />
+                      <Tooltip content={<HackTooltip />} />
                         <Area
                           type="monotone" dataKey="risk"
                           stroke="#38bdf8" strokeWidth={2}
                           fillOpacity={1} fill="url(#riskGrad)"
                           dot={{ fill: '#38bdf8', r: 3, strokeWidth: 0 }}
-                          activeDot={{ fill: '#fff', r: 4, stroke: '#38bdf8', strokeWidth: 2 }}
+                          activeDot={{ fill: theme === 'dark' ? '#fff' : '#0ea5e9', r: 4, stroke: '#38bdf8', strokeWidth: 2 }}
                           isAnimationActive animationDuration={800}
                         />
                       </AreaChart>
@@ -542,10 +568,10 @@ const Dashboard = () => {
                   <div className="h-36">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={trafficData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                        <XAxis dataKey="name" stroke="#334155" tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} />
-                        <YAxis stroke="#334155" tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} />
-                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f', color: '#fff', fontSize: 11, fontFamily: 'monospace' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis dataKey="name" stroke="var(--border)" tick={{ fill: 'var(--subtle)', fontSize: 9, fontFamily: 'monospace' }} />
+                        <YAxis stroke="var(--border)" tick={{ fill: 'var(--subtle)', fontSize: 9, fontFamily: 'monospace' }} />
+                        <Tooltip contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 11, fontFamily: 'monospace' }} />
                         <Bar dataKey="vol" fill="#4ade80" radius={[3, 3, 0, 0]} isAnimationActive animationDuration={600} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -555,16 +581,18 @@ const Dashboard = () => {
             </div>
 
             {/* Alert feed */}
-            <div className="flex flex-col bg-slate-900 rounded-lg border border-slate-800 overflow-hidden" style={{ minHeight: '580px' }}>
+            <div className={`flex flex-col rounded-lg border overflow-hidden bg-[var(--surface)] border-[var(--border)] shadow-sm`} style={{ minHeight: '580px' }}>
 
               {/* Feed header */}
-              <div className="px-5 py-3 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+              <div className={`px-5 py-3 border-b flex items-center justify-between ${
+                theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-gray-50 bg-gray-50/50'
+              }`}>
                 <div className="flex items-center gap-2">
                   <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${hasCritical
                       ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]'
                       : 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]'
                     }`} />
-                  <h3 className="text-[10px] font-mono font-bold tracking-[0.2em] uppercase text-white">
+                  <h3 className={`text-[10px] font-mono font-bold tracking-[0.2em] uppercase text-[var(--text)]`}>
                     Real-Time Feed
                   </h3>
                 </div>
@@ -576,7 +604,7 @@ const Dashboard = () => {
                   )}
                   <Radio
                     size={11}
-                    className={hasCritical ? 'text-red-400 animate-pulse' : 'text-slate-600'}
+                    className={hasCritical ? 'text-red-400 animate-pulse' : 'text-[var(--subtle)]'}
                   />
                 </div>
               </div>
@@ -587,11 +615,13 @@ const Dashboard = () => {
               </div>
 
               {/* Footer */}
-              <div className="px-4 py-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
-                <span className="text-[8px] font-mono text-slate-600 tracking-widest uppercase">
+              <div className={`px-4 py-3 border-t flex items-center justify-between ${
+                theme === 'dark' ? 'border-[var(--border)] bg-[var(--bg)]/60' : 'border-gray-50 bg-gray-50/50'
+              }`}>
+                <span className="text-[8px] font-mono text-[var(--subtle)] tracking-widest uppercase">
                   {alerts.length} events in session
                 </span>
-                <button className="text-[8px] font-mono text-slate-500 hover:text-sky-400 tracking-widest uppercase transition-colors">
+                <button className={`text-[8px] font-mono tracking-widest uppercase transition-colors text-[var(--subtle)] hover:text-[var(--accent)]`}>
                   View All →
                 </button>
               </div>
