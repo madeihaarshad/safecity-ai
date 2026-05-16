@@ -22,7 +22,7 @@ const Toast = () => {
 
   return (
     <div className="fixed bottom-6 right-6 z-[9999] transition-opacity duration-300">
-      <div className="bg-slate-800 text-green-400 text-xs font-mono px-4 py-2 rounded-lg shadow-lg border border-green-500/20 flex items-center gap-2">
+      <div className="bg-[var(--card)] text-[var(--accent)] text-xs font-mono px-4 py-2 rounded-lg shadow-lg border border-[var(--accent)]/20 flex items-center gap-2">
         <span>✓</span> Data synced
       </div>
     </div>

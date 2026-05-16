@@ -28,8 +28,8 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-slate-950 p-6">
-          <div className="bg-slate-900 border border-red-500/30 rounded-xl p-8 max-w-md w-full text-center">
+        <div className="flex items-center justify-center min-h-screen bg-[var(--bg)] p-6">
+          <div className="bg-[var(--surface)] border border-[var(--danger)]/30 rounded-xl p-8 max-w-md w-full text-center">
             <div className="flex justify-center mb-4">
               <div className="p-3 bg-red-500/10 rounded-full">
                 <AlertTriangle size={32} className="text-red-400" />
@@ -40,19 +40,19 @@ class ErrorBoundary extends React.Component {
               Something went wrong in this section
             </h2>
             
-            <p className="text-slate-400 text-sm mb-6">
+            <p className="text-[var(--subtle)] text-sm mb-6">
               An unexpected error occurred. Reloading the page may fix the issue.
             </p>
 
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <details className="mb-6 text-left">
-                <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400 mb-2">
+                <summary className="text-xs text-[var(--subtle)]/70 cursor-pointer hover:text-[var(--subtle)] mb-2">
                   Error Details (Development Only)
                 </summary>
-                <div className="bg-slate-950 border border-slate-800 rounded p-3 text-xs font-mono text-red-400 overflow-auto max-h-40">
+                <div className="bg-[var(--bg)] border border-[var(--border)] rounded p-3 text-xs font-mono text-[var(--danger)] overflow-auto max-h-40">
                   <p className="mb-2">{this.state.error.toString()}</p>
                   {this.state.errorInfo && (
-                    <pre className="text-slate-500 whitespace-pre-wrap">
+                    <pre className="text-[var(--subtle)] whitespace-pre-wrap">
                       {this.state.errorInfo.componentStack}
                     </pre>
                   )}

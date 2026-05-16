@@ -11,6 +11,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import socket from "../socket";
 import Breadcrumb from '../components/Breadcrumb';
+import { useTheme } from "../context/ThemeContext";
 
 // ─── Fix default marker icons ───────────────────────────────────────────────
 delete L.Icon.Default.prototype._getIconUrl;
@@ -30,18 +31,18 @@ L.Icon.Default.mergeOptions({
  */
 const getRiskTier = (speed) => {
   if (!speed && speed !== 0) return "unknown";
-  if (speed <= 60)  return "safe";
-  if (speed <= 90)  return "medium";
+  if (speed <= 60) return "safe";
+  if (speed <= 90) return "medium";
   if (speed <= 110) return "high";
   return "critical";
 };
 
 const RISK_CONFIG = {
-  safe:     { color: "#22c55e", fill: "#22c55e22", label: "Safe",     radius: 200,  pulse: false },
-  medium:   { color: "#eab308", fill: "#eab30822", label: "Medium",   radius: 350,  pulse: false },
-  high:     { color: "#f97316", fill: "#f9731622", label: "High Risk",radius: 500,  pulse: true  },
-  critical: { color: "#ef4444", fill: "#ef444433", label: "Critical", radius: 700,  pulse: true  },
-  unknown:  { color: "#64748b", fill: "#64748b22", label: "Unknown",  radius: 200,  pulse: false },
+  safe: { color: "#22c55e", fill: "#22c55e22", label: "Safe", radius: 200, pulse: false },
+  medium: { color: "#eab308", fill: "#eab30822", label: "Medium", radius: 350, pulse: false },
+  high: { color: "#f97316", fill: "#f9731622", label: "High Risk", radius: 500, pulse: true },
+  critical: { color: "#ef4444", fill: "#ef444433", label: "Critical", radius: 700, pulse: true },
+  unknown: { color: "#64748b", fill: "#64748b22", label: "Unknown", radius: 200, pulse: false },
 };
 
 // ─── Custom animated icon ────────────────────────────────────────────────────
@@ -68,10 +69,10 @@ const buildIcon = (tier) => {
 
 // ─── Incident markers (static demo data, swap with real API) ─────────────────
 const INCIDENTS = [
-  { id: "I1", lat: 33.705, lng: 73.062, type: "accident",    label: "Vehicle Collision",     color: "#ef4444" },
-  { id: "I2", lat: 33.671, lng: 73.024, type: "roadblock",   label: "Road Blocked",          color: "#f97316" },
-  { id: "I3", lat: 33.690, lng: 73.080, type: "flood",       label: "Flood Warning Zone",    color: "#3b82f6" },
-  { id: "I4", lat: 33.652, lng: 73.048, type: "construction",label: "Construction Zone",     color: "#eab308" },
+  { id: "I1", lat: 33.705, lng: 73.062, type: "accident", label: "Vehicle Collision", color: "#ef4444" },
+  { id: "I2", lat: 33.671, lng: 73.024, type: "roadblock", label: "Road Blocked", color: "#f97316" },
+  { id: "I3", lat: 33.690, lng: 73.080, type: "flood", label: "Flood Warning Zone", color: "#3b82f6" },
+  { id: "I4", lat: 33.652, lng: 73.048, type: "construction", label: "Construction Zone", color: "#eab308" },
 ];
 
 const incidentIcon = (color) =>
@@ -117,7 +118,7 @@ const HeatmapLayer = ({ sensors }) => {
     // We use a simple Leaflet imageOverlay approximating the map bounds
     // For production use leaflet-heat plugin for true heatmaps
     layerRef.current = null; // canvas heatmap is drawn on sensors change
-    return () => {};
+    return () => { };
   }, [sensors, map]);
 
   return null;
@@ -125,22 +126,28 @@ const HeatmapLayer = ({ sensors }) => {
 
 // ─── Legend panel ─────────────────────────────────────────────────────────────
 const Legend = ({ sensors }) => {
+  const { theme } = useTheme();
   const counts = { safe: 0, medium: 0, high: 0, critical: 0 };
   sensors.forEach((s) => {
     const t = getRiskTier(s.lastReading?.value ?? 0);
     if (counts[t] !== undefined) counts[t]++;
   });
 
+  const isDark = theme === 'dark';
+
   return (
     <div style={{
       position: "absolute", bottom: 32, left: 16, zIndex: 1000,
-      background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)",
-      border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12,
-      padding: "14px 18px", color: "#f1f5f9", fontFamily: "'JetBrains Mono',monospace",
+      background: isDark ? "rgba(10, 22, 40, 0.95)" : "rgba(255, 255, 255, 0.95)", 
+      backdropFilter: "blur(12px)",
+      border: isDark ? "1px solid rgba(0, 212, 200, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)", 
+      borderRadius: 12,
+      padding: "14px 18px", color: isDark ? "#f1f5f9" : "#0f172a", 
+      fontFamily: "'JetBrains Mono',monospace",
       fontSize: 12, minWidth: 190,
-      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+      boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.5), 0 0 15px rgba(0, 212, 200, 0.1)" : "0 8px 32px rgba(0,0,0,0.1)",
     }}>
-      <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.1em", color: "#94a3b8", marginBottom: 10 }}>
+      <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.1em", color: isDark ? "#94a3b8" : "#64748b", marginBottom: 10 }}>
         LIVE RISK ZONES
       </div>
       {Object.entries(RISK_CONFIG).filter(([k]) => k !== "unknown").map(([tier, cfg]) => (
@@ -149,16 +156,17 @@ const Legend = ({ sensors }) => {
             width: 10, height: 10, borderRadius: "50%",
             background: cfg.color, boxShadow: `0 0 6px ${cfg.color}`,
           }} />
-          <span style={{ flex: 1, color: "#cbd5e1" }}>{cfg.label}</span>
+          <span style={{ flex: 1, color: isDark ? "#cbd5e1" : "#475569" }}>{cfg.label}</span>
           <span style={{
-            background: "rgba(255,255,255,0.08)", borderRadius: 6,
+            background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)", 
+            borderRadius: 6,
             padding: "1px 7px", color: cfg.color, fontWeight: 700,
           }}>{counts[tier] ?? 0}</span>
         </div>
       ))}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: 10, paddingTop: 10 }}>
-        <div style={{ color: "#94a3b8", fontSize: 10 }}>Speed thresholds</div>
-        <div style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>
+      <div style={{ borderTop: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.05)", marginTop: 10, paddingTop: 10 }}>
+        <div style={{ color: isDark ? "#94a3b8" : "#64748b", fontSize: 10 }}>Speed thresholds</div>
+        <div style={{ color: isDark ? "#64748b" : "#94a3b8", fontSize: 10, marginTop: 4 }}>
           ≤60 Safe · 61–90 Medium<br />91–110 High · &gt;110 Critical
         </div>
       </div>
@@ -168,11 +176,14 @@ const Legend = ({ sensors }) => {
 
 // ─── Stats bar ────────────────────────────────────────────────────────────────
 const StatsBar = ({ sensors }) => {
+  const { theme } = useTheme();
   const maxSpeed = Math.max(...sensors.map(s => s.lastReading?.value ?? 0), 0);
   const critCount = sensors.filter(s => getRiskTier(s.lastReading?.value ?? 0) === "critical").length;
   const avgSpeed = sensors.length
     ? Math.round(sensors.reduce((a, s) => a + (s.lastReading?.value ?? 0), 0) / sensors.length)
     : 0;
+
+  const isDark = theme === 'dark';
 
   const stats = [
     { label: "Active Sensors", value: sensors.length, color: "#38bdf8" },
@@ -188,14 +199,16 @@ const StatsBar = ({ sensors }) => {
     }}>
       {stats.map((s) => (
         <div key={s.label} style={{
-          background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
+          background: isDark ? "rgba(10, 22, 40, 0.95)" : "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(12px)",
+          border: isDark ? "1px solid rgba(0, 212, 200, 0.2)" : "1px solid rgba(0, 0, 0, 0.1)",
+          borderRadius: 10,
           padding: "8px 14px", textAlign: "center",
           fontFamily: "'JetBrains Mono',monospace",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.4), 0 0 10px rgba(0, 212, 200, 0.05)" : "0 4px 20px rgba(0,0,0,0.1)",
         }}>
           <div style={{ color: s.color, fontWeight: 700, fontSize: 16 }}>{s.value}</div>
-          <div style={{ color: "#64748b", fontSize: 9, letterSpacing: "0.08em", marginTop: 2 }}>
+          <div style={{ color: isDark ? "#64748b" : "#94a3b8", fontSize: 9, letterSpacing: "0.08em", marginTop: 2 }}>
             {s.label.toUpperCase()}
           </div>
         </div>
@@ -206,6 +219,7 @@ const StatsBar = ({ sensors }) => {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 const MapView = () => {
+  const { theme } = useTheme();
   const [sensors, setSensors] = useState([]);
   const [showIncidents, setShowIncidents] = useState(true);
   const [showZones, setShowZones] = useState(true);
@@ -254,17 +268,21 @@ const MapView = () => {
         display: "flex", gap: 8, flexDirection: "column",
       }}>
         {[
-          { label: "Risk Zones",  state: showZones,     set: setShowZones },
-          { label: "Incidents",   state: showIncidents, set: setShowIncidents },
+          { label: "Risk Zones", state: showZones, set: setShowZones },
+          { label: "Incidents", state: showIncidents, set: setShowIncidents },
         ].map(({ label, state, set }) => (
           <button key={label} onClick={() => set(!state)} style={{
-            background: state ? "rgba(56,189,248,0.15)" : "rgba(15,23,42,0.85)",
+            background: state 
+              ? (theme === 'dark' ? "rgba(0, 212, 200, 0.2)" : "rgba(0, 212, 200, 0.1)") 
+              : (theme === 'dark' ? "rgba(10, 22, 40, 0.85)" : "rgba(255, 255, 255, 0.85)"),
             backdropFilter: "blur(10px)",
-            border: `1px solid ${state ? "#38bdf8" : "rgba(255,255,255,0.1)"}`,
+            border: `1px solid ${state ? "#4ADE80" : (theme === 'dark' ? "rgba(74, 222, 128, 0.15)" : "rgba(22, 163, 74, 0.15)")}`,
             borderRadius: 8, padding: "6px 14px",
-            color: state ? "#38bdf8" : "#64748b",
+            color: state ? "#4ADE80" : (theme === 'dark' ? "#7FAF88" : "#16A34A"),
             fontFamily: "'JetBrains Mono',monospace", fontSize: 11,
             cursor: "pointer", fontWeight: 700, letterSpacing: "0.05em",
+            boxShadow: state ? "0 0 10px rgba(0, 212, 200, 0.2)" : "none",
+            transition: "all 0.2s ease",
           }}>
             {state ? "✓ " : ""}{label.toUpperCase()}
           </button>
@@ -280,7 +298,10 @@ const MapView = () => {
         {/* Dark map tiles for better contrast */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url={theme === 'dark' 
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          }
         />
 
         {/* Heatmap canvas layer */}
