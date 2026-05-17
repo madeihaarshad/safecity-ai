@@ -1,6 +1,6 @@
 # SafeCity AI - Intelligent Safety Monitoring & AI Routing
 
-![CI](https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/deploy.yml/badge.svg)
+![CI](https://github.com/madeihaarshad/safecity-ai/actions/workflows/deploy.yml/badge.svg)
 
 SafeCity AI is a comprehensive safety management system designed for smart cities. It leverages the MERN stack for real-time monitoring and a Python/Flask AI Engine for predictive risk modeling and safety-optimized pathfinding.
 
