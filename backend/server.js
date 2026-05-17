@@ -12,12 +12,23 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { 
   cors: { 
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://safecityai-frontend.vercel.app"
+    ],
     methods: ["GET", "POST"]
   } 
 });
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://safecityai-frontend.vercel.app"
+  ],
+  credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 
 const JWT_SECRET = process.env.JWT_SECRET || "safecity_super_secret_key_2024";
