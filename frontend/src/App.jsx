@@ -359,7 +359,7 @@ const WrappedApp = () => {
         <Router>
           <App />
           <Toast />
-          <WelcomeModal />
+          {/* <WelcomeModal /> */} 
         </Router>
       </AuthProvider>
     </ThemeProvider>
