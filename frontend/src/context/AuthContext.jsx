@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [driverToken, setDriverToken] = useState(localStorage.getItem('driverToken'));
 
-  const API_URL = 'http://localhost:5000/api';
+  const API_URL = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api`;
 
   // Configure axios defaults
   useEffect(() => {
