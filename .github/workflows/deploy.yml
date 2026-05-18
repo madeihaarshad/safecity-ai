@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
     - name: Checkout Repository
       uses: actions/checkout@v4
 
@@ -23,7 +22,7 @@ jobs:
     - name: Install Frontend Dependencies
       run: |
         cd frontend
-        npm install
+        npm ci
 
     - name: Build Frontend
       run: |
@@ -31,10 +30,10 @@ jobs:
         npm run build
 
     # BACKEND
-    - name: Install Backend Dependencies
+    - name: Setup Backend Dependencies
       run: |
         cd backend
-        npm install
+        if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
     # AI ENGINE
     - name: Setup Python
@@ -45,4 +44,4 @@ jobs:
     - name: Install AI Engine Dependencies
       run: |
         cd ai-engine
-        pip install -r requirements.txt
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi

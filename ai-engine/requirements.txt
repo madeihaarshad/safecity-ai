@@ -6,3 +6,5 @@ networkx
 scikit-learn
 opencv-python-headless
 ultralytics
+inference-sdk
+python-dotenv
