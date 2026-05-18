@@ -18,9 +18,8 @@ CORS(app, resources={r"/*": {"origins": [
 
 # ── Application startup tracking ────────────────────────────
 start_time = time.time()
-
 print("🔍 Loading YOLOv8s model...")
-yolo_model = YOLO("yolov8s.pt")   # 's' (small) is more accurate than 'n' for class distinction
+yolo_model = YOLO("yolov8s.pt")
 print("✅ YOLOv8s ready")
 
 # ── City graph ──────────────────────────────────────────────
@@ -48,20 +47,21 @@ detection_state = {
 }
 state_lock = threading.Lock()
 
-# ── COCO class IDs — exact, no merging ──────────────────────
+# ── COCO class IDs ──────────────────────────────────────────
 PERSON_CLS     = 0
-BICYCLE_CLS    = 1    # actual pedal bicycle
+BICYCLE_CLS    = 1
 CAR_CLS        = 2
-MOTORCYCLE_CLS = 3    # motorbike / scooter
+MOTORCYCLE_CLS = 3
 BUS_CLS        = 5
 TRUCK_CLS      = 7
 
-# Groups used for logic (kept separate for counting/labeling)
 TWO_WHEELER_CLS = {BICYCLE_CLS, MOTORCYCLE_CLS}
 HEAVY_CLS       = {CAR_CLS, BUS_CLS, TRUCK_CLS}
 ALL_VEHICLE_CLS = TWO_WHEELER_CLS | HEAVY_CLS
 
-# Human-readable labels (override COCO defaults for display)
+# Only buses and trucks can be "oversized" — never motorcycles or cars
+OVERSIZED_CLS = {BUS_CLS, TRUCK_CLS}
+
 LABEL_MAP = {
     0: "Person",
     1: "Bicycle",
@@ -71,14 +71,8 @@ LABEL_MAP = {
     7: "Truck",
 }
 
-
 # ── Night / low-light enhancement ───────────────────────────
 def preprocess_frame(frame):
-    """
-    CLAHE on the L-channel of LAB colourspace.
-    Brightens dark regions without blowing out headlights.
-    Works transparently on daytime images (no visible change).
-    """
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
@@ -86,10 +80,59 @@ def preprocess_frame(frame):
     enhanced = cv2.cvtColor(cv2.merge([l_eq, a, b]), cv2.COLOR_LAB2BGR)
     return enhanced
 
-
 def get_label(cls_id, default_name):
-    """Return clean display label for a COCO class id."""
     return LABEL_MAP.get(cls_id, default_name.capitalize())
+
+# ── Helmet check helper ──────────────────────────────────────
+def rider_likely_missing_helmet(person_bbox, moto_bbox, frame_h):
+    """
+    Returns True only when there is strong evidence a helmet is absent:
+      1. The person bbox top (head position) is above the motorcycle centre
+         → confirms the person is actually sitting on/riding the motorcycle.
+      2. The person's head region occupies the topmost ~25 % of their bbox.
+         We check that this head region does NOT contain a large dark/round blob
+         that would indicate a helmet.  Because YOLOv8 (COCO) has no helmet
+         class we use a simple heuristic: if the person bbox is very tall
+         relative to the motorcycle bbox the head is probably exposed.
+      3. A minimum frame-relative size guard prevents flagging distant/tiny
+         detections that are too small to judge reliably.
+
+    NOTE: This heuristic dramatically reduces false positives but is NOT a
+    substitute for a dedicated helmet-detection model.  For production, train
+    or source a binary helmet classifier and replace this function.
+    """
+    px1, py1, px2, py2 = person_bbox
+    tx1, ty1, tx2, ty2 = moto_bbox
+
+    person_h = py2 - py1
+    person_w = px2 - px1
+    moto_h   = ty2 - ty1
+    moto_cy  = (ty1 + ty2) / 2
+
+    # Guard 1: person must be small enough to be reliable (skip far-away blobs)
+    if person_h < 40 or person_w < 20:
+        return False
+
+    # Guard 2: person top (head) must be above motorcycle vertical centre
+    #          → confirms riding posture, not just standing nearby
+    if py1 >= moto_cy:
+        return False
+
+    # Guard 3: person bbox should be taller than ~60 % of moto bbox
+    #          A seated rider with a helmet still shows a clear head bump;
+    #          a very squat person bbox often means the head is occluded/helmeted
+    if moto_h > 0 and (person_h / moto_h) < 0.55:
+        return False
+
+    # Guard 4: aspect-ratio sanity — a standing/walking person is tall;
+    #          a seated rider on a naked bike is roughly square.
+    #          Reject very tall aspect ratios (likely a pedestrian, not a rider).
+    aspect = person_h / max(person_w, 1)
+    if aspect > 2.8:
+        return False
+
+    # If all guards pass, flag as suspected no-helmet
+    return True
 
 
 # ════════════════════════════════════════════════════════════
@@ -100,6 +143,7 @@ def detect_frame():
     data = request.json
     if not data or 'image' not in data:
         return jsonify({"error": "No image provided"}), 400
+
     try:
         img_bytes = base64.b64decode(data['image'])
         np_arr    = np.frombuffer(img_bytes, np.uint8)
@@ -107,9 +151,7 @@ def detect_frame():
         if frame is None:
             return jsonify({"error": "Could not decode image"}), 400
 
-        # Night enhancement before inference
         frame = preprocess_frame(frame)
-
         results = yolo_model(frame, conf=0.20, verbose=False)[0]
 
         detections   = []
@@ -119,19 +161,15 @@ def detect_frame():
         for box in results.boxes:
             cls_id = int(box.cls[0])
             if cls_id not in ALL_VEHICLE_CLS and cls_id != PERSON_CLS:
-                continue   # ignore irrelevant COCO classes (dog, chair, etc.)
-
+                continue
             conf   = float(box.conf[0])
             x1, y1, x2, y2 = [int(v) for v in box.xyxy[0]]
             label  = get_label(cls_id, results.names[cls_id])
-
             detections.append({
                 "label":      label,
                 "confidence": round(conf, 2),
                 "bbox":       [x1, y1, x2, y2]
             })
-
-            # Count by exact class
             if   cls_id == CAR_CLS:        cars        += 1
             elif cls_id == BUS_CLS:        buses       += 1
             elif cls_id == TRUCK_CLS:      trucks      += 1
@@ -139,15 +177,14 @@ def detect_frame():
             elif cls_id == BICYCLE_CLS:    bicycles    += 1
             elif cls_id == PERSON_CLS:     pedestrians += 1
 
-            # Oversized vehicle check
-            if cls_id in HEAVY_CLS:
+            # Oversized check — buses & trucks only, raised threshold to 35 %
+            if cls_id in OVERSIZED_CLS:
                 box_area   = (x2 - x1) * (y2 - y1)
                 frame_area = frame.shape[0] * frame.shape[1]
-                if box_area > 0.25 * frame_area:
+                if box_area > 0.35 * frame_area:
                     violations.append(f"Oversized {label} Detected")
 
         total_vehicles = cars + buses + trucks + motorcycles + bicycles
-
         if total_vehicles >= 7:
             congestion = "High"
         elif total_vehicles >= 4:
@@ -178,7 +215,6 @@ def detect_frame():
             "violations":       violations,
             "detections":       detections,
             "annotated_frame":  annotated_b64,
-            # Breakdown by type — shown in frontend
             "breakdown": {
                 "cars":        cars,
                 "buses":       buses,
@@ -188,7 +224,6 @@ def detect_frame():
                 "pedestrians": pedestrians
             }
         })
-
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -201,20 +236,19 @@ def detect_violations():
     data = request.json
     if not data or 'image' not in data:
         return jsonify({"error": "No image provided"}), 400
+
     try:
         img_bytes = base64.b64decode(data['image'])
         np_arr    = np.frombuffer(img_bytes, np.uint8)
         frame     = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         h, w      = frame.shape[:2]
 
-        # Night enhancement
         frame = preprocess_frame(frame)
-
-        results = yolo_model(frame, conf=0.20, verbose=False)[0]
+        results = yolo_model(frame, conf=0.25, verbose=False)[0]  # raised conf threshold
 
         persons      = []
-        motorcycles  = []   # ONLY true motorcycles for no-helmet rule
-        bicycles     = []   # tracked separately
+        motorcycles  = []
+        bicycles     = []
         all_vehicles = []
 
         for box in results.boxes:
@@ -224,16 +258,13 @@ def detect_violations():
             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
 
             if cls_id == PERSON_CLS:
-                persons.append({"bbox": [x1,y1,x2,y2], "cx": cx, "cy": cy})
-
+                persons.append({"bbox": [x1,y1,x2,y2], "cx": cx, "cy": cy, "conf": conf})
             elif cls_id == MOTORCYCLE_CLS:
                 motorcycles.append({"bbox": [x1,y1,x2,y2], "cx": cx, "cy": cy})
                 all_vehicles.append({"cls": cls_id, "label": "Motorcycle", "bbox": [x1,y1,x2,y2]})
-
             elif cls_id == BICYCLE_CLS:
                 bicycles.append({"bbox": [x1,y1,x2,y2], "cx": cx, "cy": cy})
                 all_vehicles.append({"cls": cls_id, "label": "Bicycle", "bbox": [x1,y1,x2,y2]})
-
             elif cls_id in HEAVY_CLS:
                 label = get_label(cls_id, results.names[cls_id])
                 all_vehicles.append({"cls": cls_id, "label": label, "bbox": [x1,y1,x2,y2]})
@@ -241,38 +272,69 @@ def detect_violations():
         violations      = []
         flagged_persons = set()
 
-        # ── Rule 1: No Helmet (Motorcycle riders only) ───────────────
-        # Bicycles excluded — helmets not legally required in most regions
+        # ── Rule 1: No Helmet (Motorcycle riders only, with heuristic guard) ──
         for moto in motorcycles:
             tx1, ty1, tx2, ty2 = moto["bbox"]
             tw_w = tx2 - tx1
             tw_h = ty2 - ty1
-            for pi, person in enumerate(persons):
-                pcx, pcy = person["cx"], person["cy"]
-                margin_x = tw_w * 1.5
-                margin_y = tw_h * 1.5
-                if (tx1 - margin_x <= pcx <= tx2 + margin_x and
-                        ty1 - margin_y <= pcy <= ty2 + margin_y):
-                    if pi not in flagged_persons:
-                        flagged_persons.add(pi)
-                        violations.append({
-                            "type":       "No Helmet on Motorcycle Rider",
-                            "severity":   "High",
-                            "location":   f"({pcx}, {pcy})",
-                            "confidence": 0.81
-                        })
 
-        # ── Rule 2: Pedestrian in Roadway ────────────────────────────
+            for pi, person in enumerate(persons):
+                if pi in flagged_persons:
+                    continue
+                pcx, pcy = person["cx"], person["cy"]
+
+                # Proximity check — person must overlap or be very close to moto
+                margin_x = tw_w * 1.0   # tightened from 1.5×
+                margin_y = tw_h * 1.0
+
+                if not (tx1 - margin_x <= pcx <= tx2 + margin_x and
+                        ty1 - margin_y <= pcy <= ty2 + margin_y):
+                    continue
+
+                # Apply heuristic helmet guard before flagging
+                if rider_likely_missing_helmet(person["bbox"], moto["bbox"], h):
+                    flagged_persons.add(pi)
+                    violations.append({
+                        "type":       "No Helmet on Motorcycle Rider",
+                        "severity":   "High",
+                        "location":   f"({pcx}, {pcy})",
+                        "confidence": 0.72   # lowered to reflect heuristic uncertainty
+                    })
+
+        # ── Rule 2: Pedestrian in Roadway ────────────────────────────────────
+        # Only flag if person is in lower 40 % of frame AND not near any vehicle
+        # (avoids flagging riders/passengers as "pedestrians in roadway")
+        frame_area = h * w
         for pi, person in enumerate(persons):
-            if pi not in flagged_persons and person["cy"] > h * 0.45:
+            if pi in flagged_persons:
+                continue   # already identified as a rider
+
+            pcx, pcy = person["cx"], person["cy"]
+
+            # Must be in lower portion of frame
+            if pcy <= h * 0.60:
+                continue
+
+            # Must NOT be immediately adjacent to any vehicle (would be a rider/passenger)
+            near_vehicle = False
+            for v in all_vehicles:
+                vx1, vy1, vx2, vy2 = v["bbox"]
+                vw = vx2 - vx1
+                vh = vy2 - vy1
+                if (vx1 - vw * 0.5 <= pcx <= vx2 + vw * 0.5 and
+                        vy1 - vh * 0.5 <= pcy <= vy2 + vh * 0.5):
+                    near_vehicle = True
+                    break
+
+            if not near_vehicle:
                 violations.append({
                     "type":       "Pedestrian in Roadway",
                     "severity":   "Medium",
-                    "location":   f"({person['cx']}, {person['cy']})",
-                    "confidence": 0.79
+                    "location":   f"({pcx}, {pcy})",
+                    "confidence": 0.75
                 })
 
-        # ── Rule 3: Heavy Traffic Congestion ─────────────────────────
+        # ── Rule 3: Heavy Traffic Congestion ─────────────────────────────────
         total_vehicles = len(all_vehicles)
         if total_vehicles >= 5:
             violations.append({
@@ -282,11 +344,12 @@ def detect_violations():
                 "confidence": 0.95
             })
 
-        # ── Rule 4: Oversized / Wrong-way Vehicle ────────────────────
-        frame_area = h * w
+        # ── Rule 4: Oversized Vehicle — buses & trucks only, 30 % threshold ──
         for v in all_vehicles:
+            if v["cls"] not in OVERSIZED_CLS:
+                continue   # motorcycles, bicycles, cars are NEVER "oversized"
             vx1, vy1, vx2, vy2 = v["bbox"]
-            if (vx2 - vx1) * (vy2 - vy1) > 0.20 * frame_area:
+            if (vx2 - vx1) * (vy2 - vy1) > 0.30 * frame_area:
                 violations.append({
                     "type":       f"Oversized Vehicle ({v['label']})",
                     "severity":   "High",
@@ -306,7 +369,6 @@ def detect_violations():
                 "others":      total_vehicles - len(motorcycles) - len(bicycles)
             }
         })
-
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -316,49 +378,37 @@ def detect_violations():
 # ════════════════════════════════════════════════════════════
 @app.route('/camera-stats', methods=['GET'])
 def camera_stats():
-    """
-    Returns comprehensive camera detection statistics.
-    Uses thread-safe access to detection_state.
-    """
     with state_lock:
         snapshot = dict(detection_state)
-    
-    # Extract last 5 violations for recent activity
     recent_violations = snapshot["violations_detected"][-5:] if snapshot["violations_detected"] else []
-    
     return jsonify({
-        "status": "success",
-        "camera_id": "CAM-001",
-        "vehicle_count": snapshot["vehicle_count"],
-        "pedestrian_count": snapshot["pedestrian_count"],
-        "congestion_level": snapshot["congestion_level"],
-        "violations_count": len(snapshot["violations_detected"]),
+        "status":            "success",
+        "camera_id":         "CAM-001",
+        "vehicle_count":     snapshot["vehicle_count"],
+        "pedestrian_count":  snapshot["pedestrian_count"],
+        "congestion_level":  snapshot["congestion_level"],
+        "violations_count":  len(snapshot["violations_detected"]),
         "recent_violations": recent_violations,
-        "frames_processed": snapshot["frame_count"],
-        "last_updated": datetime.now().isoformat()
+        "frames_processed":  snapshot["frame_count"],
+        "last_updated":      datetime.now().isoformat()
     })
 
 
 # ════════════════════════════════════════════════════════════
-# ENDPOINT 3B — /reset-stats (for testing)
+# ENDPOINT 3B — /reset-stats
 # ════════════════════════════════════════════════════════════
 @app.route('/reset-stats', methods=['POST'])
 def reset_stats():
-    """
-    Resets all detection statistics to initial state.
-    Use for testing and clearing old data.
-    """
     with state_lock:
-        detection_state["vehicle_count"] = 0
-        detection_state["pedestrian_count"] = 0
-        detection_state["congestion_level"] = "Low"
+        detection_state["vehicle_count"]       = 0
+        detection_state["pedestrian_count"]    = 0
+        detection_state["congestion_level"]    = "Low"
         detection_state["violations_detected"] = []
-        detection_state["last_frame_objects"] = []
-        detection_state["frame_count"] = 0
-    
+        detection_state["last_frame_objects"]  = []
+        detection_state["frame_count"]         = 0
     return jsonify({
-        "status": "success",
-        "message": "Detection statistics reset successfully",
+        "status":    "success",
+        "message":   "Detection statistics reset successfully",
         "timestamp": datetime.now().isoformat()
     })
 
@@ -368,140 +418,75 @@ def reset_stats():
 # ════════════════════════════════════════════════════════════
 @app.route('/predict-risk', methods=['POST'])
 def predict_risk():
-    """
-    Calculate traffic risk score based on multiple factors.
-    
-    Expected JSON input:
-    {
-        "hour": 14,
-        "weather": "Rain",
-        "congestion": "Moderate",
-        "speed_avg": 72,
-        "incident_count": 3
-    }
-    """
     data = request.json
     try:
-        # Extract inputs with defaults
-        hour = data.get('hour', 12)
-        weather = data.get('weather', 'Clear')
-        congestion = data.get('congestion', 'Light')
-        speed_avg = data.get('speed_avg', 60)
+        hour           = data.get('hour', 12)
+        weather        = data.get('weather', 'Clear')
+        congestion     = data.get('congestion', 'Light')
+        speed_avg      = data.get('speed_avg', 60)
         incident_count = data.get('incident_count', 0)
-        
-        # Initialize score components
-        score = 0
+
+        score     = 0
         breakdown = {}
-        
-        # ===== TIME OF DAY =====
-        # Night (0-5, 20-24) = +20, Rush hour (7-9, 16-18) = +15, else 0
+
         if hour in range(0, 6) or hour in range(20, 24):
-            time_risk = 20
-            time_label = "Night"
+            time_risk, time_label = 20, "Night"
         elif hour in range(7, 10) or hour in range(16, 19):
-            time_risk = 15
-            time_label = "Rush Hour"
+            time_risk, time_label = 15, "Rush Hour"
         else:
-            time_risk = 0
-            time_label = "Normal"
-        
+            time_risk, time_label = 0, "Normal"
         score += time_risk
-        breakdown['time'] = {
-            'points': time_risk,
-            'label': time_label,
-            'hour': hour
-        }
-        
-        # ===== WEATHER =====
-        weather_risk = {
-            'Clear': 0,
-            'Rain': 20,
-            'Fog': 25,
-            'Storm': 35
-        }.get(weather, 0)
-        
+        breakdown['time'] = {'points': time_risk, 'label': time_label, 'hour': hour}
+
+        weather_risk = {'Clear': 0, 'Rain': 20, 'Fog': 25, 'Storm': 35}.get(weather, 0)
         score += weather_risk
-        breakdown['weather'] = {
-            'points': weather_risk,
-            'condition': weather
-        }
-        
-        # ===== CONGESTION =====
-        congestion_risk = {
-            'Free Flow': 0,
-            'Light': 5,
-            'Moderate': 15,
-            'Severe': 25
-        }.get(congestion, 0)
-        
+        breakdown['weather'] = {'points': weather_risk, 'condition': weather}
+
+        congestion_risk = {'Free Flow': 0, 'Light': 5, 'Moderate': 15, 'Severe': 25}.get(congestion, 0)
         score += congestion_risk
-        breakdown['congestion'] = {
-            'points': congestion_risk,
-            'level': congestion
-        }
-        
-        # ===== SPEED =====
+        breakdown['congestion'] = {'points': congestion_risk, 'level': congestion}
+
         if speed_avg > 100:
-            speed_risk = 20
-            speed_label = "Excessive"
+            speed_risk, speed_label = 20, "Excessive"
         elif speed_avg > 80:
-            speed_risk = 10
-            speed_label = "High"
+            speed_risk, speed_label = 10, "High"
         elif speed_avg < 50:
-            speed_risk = 5
-            speed_label = "Low"
+            speed_risk, speed_label = 5, "Low"
         else:
-            speed_risk = 0
-            speed_label = "Normal"
-        
+            speed_risk, speed_label = 0, "Normal"
         score += speed_risk
-        breakdown['speed'] = {
-            'points': speed_risk,
-            'avg_kmh': speed_avg,
-            'label': speed_label
-        }
-        
-        # ===== INCIDENTS =====
-        incident_risk = min(incident_count * 8, 40)  # Each incident +8, capped at 40
+        breakdown['speed'] = {'points': speed_risk, 'avg_kmh': speed_avg, 'label': speed_label}
+
+        incident_risk = min(incident_count * 8, 40)
         score += incident_risk
-        breakdown['incidents'] = {
-            'points': incident_risk,
-            'count': incident_count
-        }
-        
-        # ===== NORMALIZE SCORE TO 0-100 =====
-        # Maximum possible score: 20 + 35 + 25 + 20 + 40 = 140
-        # Normalize: (actual_score / max_score) * 100
-        max_possible_score = 140
-        risk_score = min(100, (score / max_possible_score) * 100)
-        risk_score = round(risk_score, 1)
-        
-        # ===== DETERMINE RISK LEVEL =====
+        breakdown['incidents'] = {'points': incident_risk, 'count': incident_count}
+
+        risk_score = round(min(100, (score / 140) * 100), 1)
+
         if risk_score >= 75:
-            level = "Critical"
+            level          = "Critical"
             recommendation = "Activate emergency protocols. Increase police presence. Consider route diversions."
         elif risk_score >= 50:
-            level = "High"
+            level          = "High"
             recommendation = "Increase traffic monitoring. Alert drivers to hazardous conditions."
         elif risk_score >= 25:
-            level = "Moderate"
+            level          = "Moderate"
             recommendation = "Standard monitoring. Advise drivers to exercise caution."
         else:
-            level = "Low"
+            level          = "Low"
             recommendation = "Conditions are safe. Routine monitoring sufficient."
-        
+
         return jsonify({
-            "status": "success",
-            "risk_score": risk_score,
-            "level": level,
-            "breakdown": breakdown,
+            "status":         "success",
+            "risk_score":     risk_score,
+            "level":          level,
+            "breakdown":      breakdown,
             "recommendation": recommendation,
-            "raw_score": score,
-            "max_score": max_possible_score
+            "raw_score":      score,
+            "max_score":      140
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
-
 
 
 # ════════════════════════════════════════════════════════════
@@ -528,19 +513,14 @@ def get_safest_route():
 # ════════════════════════════════════════════════════════════
 @app.route('/health', methods=['GET'])
 def health():
-    """
-    Health check endpoint for AI engine monitoring.
-    Polled by frontend every 30 seconds to verify engine status.
-    """
     uptime_seconds = int(time.time() - start_time)
-    
     return jsonify({
-        "status": "online",
-        "model": "YOLOv8s",
-        "model_loaded": yolo_model is not None,
-        "city_graph_nodes": city_map.number_of_nodes(),
-        "city_graph_edges": city_map.number_of_edges(),
-        "uptime_seconds": uptime_seconds,
+        "status":            "online",
+        "model":             "YOLOv8s",
+        "model_loaded":      yolo_model is not None,
+        "city_graph_nodes":  city_map.number_of_nodes(),
+        "city_graph_edges":  city_map.number_of_edges(),
+        "uptime_seconds":    uptime_seconds,
         "endpoints": [
             "/detect-frame",
             "/detect-violations",
