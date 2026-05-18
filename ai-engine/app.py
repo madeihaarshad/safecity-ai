@@ -249,8 +249,8 @@ def detect_violations():
             tw_h = ty2 - ty1
             for pi, person in enumerate(persons):
                 pcx, pcy = person["cx"], person["cy"]
-                margin_x = tw_w * 0.7
-                margin_y = tw_h * 0.9
+                margin_x = tw_w * 1.5
+                margin_y = tw_h * 1.5
                 if (tx1 - margin_x <= pcx <= tx2 + margin_x and
                         ty1 - margin_y <= pcy <= ty2 + margin_y):
                     if pi not in flagged_persons:
@@ -264,7 +264,7 @@ def detect_violations():
 
         # ── Rule 2: Pedestrian in Roadway ────────────────────────────
         for pi, person in enumerate(persons):
-            if pi not in flagged_persons and person["cy"] > h * 0.25:
+            if pi not in flagged_persons and person["cy"] > h * 0.45:
                 violations.append({
                     "type":       "Pedestrian in Roadway",
                     "severity":   "Medium",
