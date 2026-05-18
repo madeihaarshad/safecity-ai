@@ -215,7 +215,7 @@ const CityRiskBanner = ({ theme }) => {
   const fetchAIAnalytics = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/ai-analytics');
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/ai-analytics`);
       if (res.ok) {
         const data = await res.json();
         setRiskData(data);
