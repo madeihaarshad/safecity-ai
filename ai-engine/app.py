@@ -10,7 +10,11 @@ from datetime import datetime
 from ultralytics import YOLO
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://safecity-ai-ten.vercel.app"
+]}})
 
 # ── Application startup tracking ────────────────────────────
 start_time = time.time()
@@ -550,5 +554,7 @@ def health():
 
 
 if __name__ == '__main__':
-    print("🤖 SafeCity AI Engine starting on port 5001...")
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    import os
+    port = int(os.environ.get("PORT", 5001))
+    print(f"🤖 SafeCity AI Engine starting on port {port}...")
+    app.run(host='0.0.0.0', port=port, debug=False)
