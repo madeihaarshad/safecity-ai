@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 const severityColor = (s) => {
   if (!s) return 'text-[var(--subtle)]';

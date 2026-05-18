@@ -86,12 +86,12 @@ const Drivers = () => {
       setError(false);
       try {
         // Fetch all drivers
-        const driversRes = await axios.get('http://localhost:5000/api/drivers');
+        const driversRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/drivers`);
         const driversList = driversRes.data;
 
         // Fetch safety scores for all drivers in parallel
         const scoresPromises = driversList.map(driver =>
-          axios.get(`http://localhost:5000/api/drivers/${driver._id}/score`)
+          axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/drivers/${driver._id}/score`)
             .then(res => ({
               ...driver,
               safetyScore: res.data.safetyScore,

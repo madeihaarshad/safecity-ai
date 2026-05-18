@@ -1,11 +1,10 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: `${import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"}/api`,
 });
-
 const AI = axios.create({
-  baseURL: "http://localhost:5001",
+  baseURL: import.meta.env.VITE_AI_ENGINE_URL || "http://localhost:5001",
 });
 
 // Add request interceptor for token

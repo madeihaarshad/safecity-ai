@@ -28,7 +28,7 @@ export const SecurityProvider = ({ children }) => {
   const [pendingSecret, setPendingSecret] = useState(null);
   const [pendingTotp, setPendingTotp] = useState(null);
 
-  const API_URL = 'http://localhost:5000/api';
+  const API_URL = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api`;
 
   useEffect(() => {
     loadSecuritySettings();

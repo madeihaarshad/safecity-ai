@@ -32,9 +32,9 @@ const LoginWith2FA = () => {
     try {
       let response;
       if (role === 'admin') {
-        response = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+        response = await axios.post(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/auth/login`, { email, password });
       } else {
-        response = await axios.post('http://localhost:5000/api/drivers/login', { licenseNumber, password });
+        response = await axios.post(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/drivers/login`, { licenseNumber, password });
       }
       
       const { token, user, requires2FA } = response.data;
@@ -62,7 +62,7 @@ const LoginWith2FA = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/verify-2fa', {
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/auth/verify-2fa`, {
         email,
         code: twoFactorCode,
         backupCode: useBackupCode ? backupCode : undefined
